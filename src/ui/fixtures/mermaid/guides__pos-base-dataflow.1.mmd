@@ -1,0 +1,19 @@
+flowchart TB
+    subgraph S1 ["1 Conform each input"]
+        R1["Retailers + Atacadão<br/>Add Constants SOURCE_DATASET<br/>Alter Columns to the contract types"]
+        R2["Scanntech<br/>Select + constants"]
+        R3["RD estado / cluster<br/>DN + DE PARA RD"]
+    end
+    U["2 Append Rows<br/>include ALL columns"]
+    STD["3 Standardize<br/>keys, units, sales filter"]
+    ST["5 Store master join<br/>+ STORE_MATCHED"]
+    PR["6 Product master join<br/>+ PRODUCT_MATCHED"]
+    EX["7 Exclusions"]
+    DT["8 Dates + store counts"]
+    OUT[("9 RCD_POS_BASE")]
+    CK[("10 RCD_POS_BASE_CHECKS")]
+    R1 --> U
+    R2 --> U
+    R3 --> U
+    U --> STD --> ST --> PR --> EX --> DT --> OUT
+    DT --> CK

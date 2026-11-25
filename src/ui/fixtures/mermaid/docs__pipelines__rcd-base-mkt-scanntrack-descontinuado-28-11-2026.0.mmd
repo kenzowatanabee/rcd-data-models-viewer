@@ -1,0 +1,8 @@
+flowchart TD
+    ST[("RCD_NIELSEN_ST")] --> GB["Group By<br/>YM+AREA+CANAL+EAN+MERCADO_NIELSEN"]
+    GB --> R1["Replace Text 1<br/>TOTAL RE → TOTAL BRASIL, BRASIL → TOTAL BRASIL"]
+    NIQ[("RCD_DN_DP_EAN_NIQ")] --> FR["Filter Rows<br/>DN > 0"] --> F2["Adicionar fórmula 2<br/>EAN before 'BP'"]
+    F2 --> GB1["Group By 1<br/>MAX DN, DP per YYYYMM+EAN+CANAL+AREA"] --> R4["Replace Text 4<br/>SUPER G, SUPER P, DRUGS"]
+    R1 --> J["Join Data 1<br/>left, AREA+EAN+YM+CANAL"]
+    R4 --> J
+    J --> OUT[("RCD_NIELSEN_ST_JOIN_DN_DP_EAN_DESCONTINUADA")]

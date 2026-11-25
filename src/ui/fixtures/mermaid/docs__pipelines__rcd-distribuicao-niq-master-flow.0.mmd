@@ -1,0 +1,57 @@
+flowchart TD
+    T1[("RCD_HIERARQUIA_DISTRIBUIÇÃO")]
+    T2[("RCD_MASTER-DISTRIBUTION_NIQ")]
+    T3["Replace Text<br/><i>ReplaceString</i>"]
+    T4["Substituir texto<br/><i>ReplaceString</i>"]
+    T5["Adicionar fórmula<br/><i>ExpressionEvaluator</i>"]
+    T6["Agrupar por<br/><i>GroupBy</i>"]
+    T7["Juntar dados 2<br/><i>MergeJoin</i>"]
+    T8["Selecionar colunas 1<br/><i>SelectValues</i>"]
+    T9["Formatação de texto<br/><i>TextFormatting</i>"]
+    T10["Juntar dados<br/><i>MergeJoin</i>"]
+    T11[("RCD_MASTER_SHARE_NIQ")]
+    T12["Replace Text 1<br/><i>ReplaceString</i>"]
+    T13["Filtrar linhas 2<br/><i>Filter</i>"]
+    T14["Filtrar linhas 3<br/><i>Filter</i>"]
+    T15["Substituir texto 1<br/><i>ReplaceString</i>"]
+    T16["Adicionar fórmula 1<br/><i>ExpressionEvaluator</i>"]
+    T17["Agrupar por 1<br/><i>GroupBy</i>"]
+    T18["Juntar dados 3<br/><i>MergeJoin</i>"]
+    T19["Adicionar constantes<br/><i>Constant</i>"]
+    T20["Selecionar colunas<br/><i>SelectValues</i>"]
+    T21["Juntar dados 1<br/><i>MergeJoin</i>"]
+    T22["Anexar linhas<br/><i>UnionAll</i>"]
+    T23["Filtrar linhas<br/><i>Filter</i>"]
+    T24["Adicionar fórmula 2<br/><i>ExpressionEvaluator</i>"]
+    T25["Selecionar colunas 2<br/><i>SelectValues</i>"]
+    T26["Remover duplicados<br/><i>Unique</i>"]
+    T27[("RCD_DISTRIBUIÇÃO_NIQ_MASTER<br/><i>output</i>")]
+    T2 --> T3
+    T3 --> T4
+    T4 --> T5
+    T5 --> T6
+    T5 --> T7
+    T6 --> T7
+    T7 --> T8
+    T1 --> T9
+    T8 --> T10
+    T9 --> T10
+    T11 --> T12
+    T12 --> T13
+    T13 --> T14
+    T14 --> T15
+    T15 --> T16
+    T16 --> T17
+    T16 --> T18
+    T17 --> T18
+    T18 --> T19
+    T19 --> T20
+    T20 --> T21
+    T9 --> T21
+    T10 --> T22
+    T21 --> T22
+    T22 --> T23
+    T23 --> T24
+    T24 --> T25
+    T25 --> T26
+    T26 --> T27

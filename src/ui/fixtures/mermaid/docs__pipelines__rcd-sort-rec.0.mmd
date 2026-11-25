@@ -1,0 +1,48 @@
+flowchart TD
+    T1[("RCD_SORT_REC_NACIONAL")]
+    T2["Select Columns<br/><i>SelectValues</i>"]
+    T3["Dynamic Unpivot<br/><i>NormalizeAll</i>"]
+    T4["Text Formatting<br/><i>TextFormatting</i>"]
+    T5[("RCD_SORT_REC 1")]
+    T6["Select Columns 1<br/><i>SelectValues</i>"]
+    T7["Dynamic Unpivot 1<br/><i>NormalizeAll</i>"]
+    T8["Text Formatting 1<br/><i>TextFormatting</i>"]
+    T9["Alter Columns<br/><i>Metadata</i>"]
+    T10["Alter Columns 1<br/><i>Metadata</i>"]
+    T11["Join Data<br/><i>MergeJoin</i>"]
+    T12[("RCD_MASTER_PRODUCT 1")]
+    T13["Select Columns 2<br/><i>SelectValues</i>"]
+    T14["Add Formula<br/><i>ExpressionEvaluator</i>"]
+    T15["Adicionar fórmula<br/><i>ExpressionEvaluator</i>"]
+    T16["Filter Rows<br/><i>Filter</i>"]
+    T17["Remove Duplicates<br/><i>Unique</i>"]
+    T18["Join Data 1<br/><i>MergeJoin</i>"]
+    T19["Filtrar linhas<br/><i>Filter</i>"]
+    T20["Add Formula 1<br/><i>ExpressionEvaluator</i>"]
+    T21["Select Columns 3<br/><i>SelectValues</i>"]
+    T22["SUB_CAT LIQUIDOS<br/><i>ExpressionEvaluator</i>"]
+    T23[("RCD_SORT_REC<br/><i>output</i>")]
+    T24[("SORTIMENTO_NACIONAL_UNPIVOTADO<br/><i>output</i>")]
+    T1 --> T2
+    T2 --> T3
+    T3 --> T4
+    T5 --> T6
+    T6 --> T7
+    T7 --> T8
+    T4 --> T9
+    T8 --> T10
+    T9 --> T11
+    T10 --> T11
+    T12 --> T13
+    T11 --> T14
+    T14 --> T15
+    T13 --> T16
+    T16 --> T17
+    T15 --> T18
+    T17 --> T18
+    T18 --> T19
+    T19 --> T20
+    T20 --> T21
+    T21 --> T22
+    T22 --> T23
+    T9 --> T24

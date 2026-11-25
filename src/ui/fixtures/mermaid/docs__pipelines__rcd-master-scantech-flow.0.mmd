@@ -1,0 +1,31 @@
+flowchart TD
+    subgraph Inputs ["Input datasets"]
+        IN_SCANNTECH[("RCD_SCANNTECH<br/><i>(Snowflake extract)</i>")]
+        IN_STORES[("RCD_MASTER_STORES")]
+    end
+
+    subgraph Flow ["RCD_MASTER_SCANTECH_FLOW (5585)"]
+        T1["LETRA MAIUSCULA<br/><i>(Text formatting)</i>"]
+        T2["PADRONIZAÇÃO CUSTOMER<br/><i>(Add formula)</i>"]
+        T3["Alter Columns<br/><i>(Rename)</i>"]
+        SQL_STORES["SQL<br/><i>(Format STORE_COD)</i>"]
+        TESTE["teste<br/><i>(disabled tile)</i>"]
+        JOIN1["JOIN MASTER LOJAS<br/><i>(Left outer join)</i>"]
+        T4["FILTRO CUSTOMER<br/><i>(Filter rows)</i>"]
+        T5["Selecionar colunas<br/><i>(Select columns)</i>"]
+        T6["PADRONIZAÇÃO E ADD CONSTANTE<br/><i>(Add formula)</i>"]
+        T8["FILTRO BANNER<br/><i>(Filter rows)</i>"]
+        GROUP1["Group By<br/><i>(Count distinct STORE_COD)</i>"]
+        JOIN2["Join Data<br/><i>(Left outer join)</i>"]
+    end
+
+    OUT_SCANTECH[("RCD_SCANTECH<br/><i>(Output)</i>")]
+
+    IN_SCANNTECH --> T1 --> T2 --> T3 --> JOIN1
+    IN_STORES --> SQL_STORES --> JOIN1
+    SQL_STORES -.-> TESTE
+    JOIN1 --> T4 --> T5 --> T6 --> T8
+    T8 -->|"Store-count branch"| GROUP1
+    T8 -->|"Main stream"| JOIN2
+    GROUP1 -->|"QUANTIDADE LOJAS"| JOIN2
+    JOIN2 --> OUT_SCANTECH

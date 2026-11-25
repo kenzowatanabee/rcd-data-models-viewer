@@ -1,0 +1,59 @@
+flowchart TD
+    T1[("RCD_T1_ATACADAO NORTE")]
+    T2[("RCD_MASTER_STORES")]
+    T3["Juntar dados<br/><i>MergeJoin</i>"]
+    T4["Adicionar fórmula<br/><i>ExpressionEvaluator</i>"]
+    T5["Selecionar colunas<br/><i>SelectValues</i>"]
+    T6["venda por bandeira<br/><i>GroupBy</i>"]
+    T7["Agrupar por<br/><i>GroupBy</i>"]
+    T8["Juntar dados 1<br/><i>MergeJoin</i>"]
+    T9["Juntar dados 2<br/><i>MergeJoin</i>"]
+    T10[("RCD_MASTER_PRODUCT<br/><i>second copy f5e11ab5</i>")]
+    T11["Juntar dados 3<br/><i>MergeJoin</i>"]
+    T12["Adicionar fórmula 1<br/><i>ExpressionEvaluator</i>"]
+    T13["Selecionar colunas 1<br/><i>SelectValues</i>"]
+    T14["Alterar colunas<br/><i>Metadata</i>"]
+    T15["Dividir o filtro<br/><i>SplitFilter</i>"]
+    T16["Agrupar por 2<br/><i>GroupBy</i>"]
+    T17["Adicionar constantes 1<br/><i>Constant</i>"]
+    T18["Agrupar por 1<br/><i>GroupBy</i>"]
+    T19["Adicionar constantes<br/><i>Constant</i>"]
+    T20[("RCD_NIELSEN_ST")]
+    T21["Select Columns<br/><i>SelectValues</i>"]
+    T22["Filter Rows<br/><i>Filter</i>"]
+    T23["Adicionar constantes 2<br/><i>Constant</i>"]
+    T24["Juntar dados 4<br/><i>MergeJoin</i>"]
+    T25["Adicionar fórmula 2<br/><i>ExpressionEvaluator</i>"]
+    T26["Anexar linhas<br/><i>UnionAll</i>"]
+    T27[("RCD_ATACADÃO DASH<br/><i>output</i>")]
+    T1 --> T3
+    T2 --> T3
+    T3 --> T4
+    T4 --> T5
+    T5 --> T6
+    T5 --> T7
+    T5 --> T8
+    T6 --> T8
+    T8 --> T9
+    T7 --> T9
+    T9 --> T11
+    T10 --> T11
+    T11 --> T12
+    T12 --> T13
+    T13 --> T14
+    T14 --> T15
+    T15 -->|"LOJAS PILOTO"| T16
+    T15 -->|"else"| T18
+    T16 --> T17
+    T18 --> T19
+    T20 --> T21
+    T21 --> T22
+    T22 --> T23
+    T23 --> T24
+    T10 --> T24
+    T24 --> T25
+    T14 --> T26
+    T17 --> T26
+    T19 --> T26
+    T25 --> T26
+    T26 --> T27

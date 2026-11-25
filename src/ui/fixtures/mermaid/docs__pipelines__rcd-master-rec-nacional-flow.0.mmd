@@ -1,0 +1,10 @@
+flowchart TD
+    T1[("RCD_SORT_REC_NACIONAL")]
+    T2["Alter Columns<br/><i>Metadata</i>"]
+    T3["Select Columns<br/><i>SelectValues</i>"]
+    T4["Unpivot<br/><i>Normalizer</i>"]
+    T5[("RCD_MASTER_REC_NACIONAL<br/><i>output</i>")]
+    T1 --> T2
+    T2 --> T3
+    T3 --> T4
+    T4 --> T5

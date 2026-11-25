@@ -1,0 +1,171 @@
+flowchart LR
+    %% ---------- Sources ----------
+    subgraph SRC ["Sources"]
+        direction TB
+        RAW_POS[("Retailer raw POS files")]
+        SNOW_SCAN[("Snowflake: Scanntech")]
+        SNOW_NIELSEN[("Snowflake: Nielsen Scantrack<br/>BR_NIELSEN_SCANTRACK_TABLE")]
+        NIQ_DISCOVER[("Nielsen IQ Discover<br/>Snowflake CUR_BR_SALES")]
+        NIELSEN_MT_SRC[("Snowflake: Nielsen Market Track<br/>BR_NIELSEN_RETAIL_INICIAL_TABLE")]
+        DatashopperMensalSellouteComm_DS_API_REP[("DatashopperMensalSellouteComm_DS_API_REP<br/>DataShopper API")]
+        DF_SALES_DATASHOPPER[("DF_SALES_DATASHOPPER<br/>DataShopper sell-out")]
+        RCD_MASTER_IQVIA[("RCD_MASTER_IQVIA<br/>IQVIA raw, no reader since 2026-11-03")]
+        IQVIA_MKT_26_ENXAGUANTES[("IQVIA_MKT_26_ENXAGUANTES<br/>IQVIA, pre-built upload")]
+    end
+
+    %% ---------- Masters shared by all master flows ----------
+    subgraph MASTERS ["Masters (used by all 4 master flows)"]
+        direction TB
+        RCD_MASTER_PRODUCT[("RCD_MASTER_PRODUCT<br/>product dimension")]
+        RCD_MASTER_STORES[("RCD_MASTER_STORES<br/>store dimension")]
+        RCD_PARA_RETIRAR[("RCD_PARA_RETIRAR<br/>EAN exclusions")]
+        DE_PARA_RD[("DE PARA RD<br/>RD code → EAN")]
+    end
+
+    subgraph REFS ["Other reference tables"]
+        direction TB
+        RCD_SORT_REC_NACIONAL[("RCD_SORT_REC_NACIONAL<br/>national assortment")]
+        RCD_SORT_REC[("RCD_SORT_REC<br/>quarterly assortment (wide sheet)")]
+        RCD_LANCAMENTOS_CP[("RCD LANÇAMENTOS CP<br/>product launches")]
+    end
+
+    %% ---------- Customer POS ----------
+    higienizador_sellout["higienizador_sellout<br/><i>Python</i>"]
+    RCD_SCANNTECH_RAW[("RCD_SCANNTECH<br/>raw")]
+    RCD_MASTER_SCANTECH_FLOW["RCD_MASTER_SCANTECH_FLOW<br/><i>5585</i>"]
+    RCD_ATACADAO_DATASHOPPER["RCD_ATACADAO_DATASHOPPER<br/><i>10780</i>"]
+    RCD_DATA_SHOPPER["RCD_DATA_SHOPPER<br/><i>9813</i>"]
+    subgraph POS_IN ["Customer POS (used by all 4 master flows, except Q38)"]
+        direction TB
+        Retailer_POS_datasets[("Retailer POS datasets<br/>RCD_T1_* / T2_* / T3_*")]
+        RCD_SCANTECH[("RCD_SCANTECH")]
+    end
+    RCD_T1_SAVEGNAGO[("RCD_T1_SAVEGNAGO<br/><i>one of the retailer datasets</i>")]
+    RCD_ATACADAO[("RCD_ATACADÃO")]
+    RCD_GRUPO_CARREFOUR[("RCD_GRUPO_CARREFOUR")]
+
+    RAW_POS --> higienizador_sellout --> Retailer_POS_datasets
+    SNOW_SCAN --> RCD_SCANNTECH_RAW --> RCD_MASTER_SCANTECH_FLOW
+    RCD_MASTER_STORES --> RCD_MASTER_SCANTECH_FLOW
+    RCD_MASTER_SCANTECH_FLOW --> RCD_SCANTECH
+    DatashopperMensalSellouteComm_DS_API_REP --> RCD_ATACADAO_DATASHOPPER --> RCD_ATACADAO
+    DF_SALES_DATASHOPPER --> RCD_DATA_SHOPPER --> RCD_GRUPO_CARREFOUR
+
+    %% ---------- Market: Nielsen ----------
+    RCD_NIELSEN_ST[("RCD_NIELSEN_ST")]
+    RCD_DN_DP_EAN_NIQ[("RCD_DN_DP_EAN_NIQ")]
+    nielsen_scan_track_query["nielsen_scan_track_query<br/><i>Snowflake SQL, last month</i>"]
+    nielsen_market_track_query["nielsen_market_track_query<br/><i>Snowflake SQL, MT + NIQ reach</i>"]
+    RCD_NIELSEN_MT_JOIN_DN_DP_EAN_NIQ[("RCD_NIELSEN_MT_JOIN_DN_DP_EAN_NIQ")]
+    RCD_BASE_MKT_FLOW["RCD_BASE_MKT_FLOW<br/><i>6352</i>"]
+    RCD_TAB_MKT_P_MASTER_FLOW[("RCD_TAB_MKT_P_MASTER_FLOW")]
+    RCD_TAB_BASE_MKT[("RCD_TAB_BASE_MKT")]
+
+    SNOW_NIELSEN --> nielsen_scan_track_query --> RCD_NIELSEN_ST
+    NIQ_DISCOVER --> RCD_DN_DP_EAN_NIQ
+    RCD_NIELSEN_ST -.->|"disabled 2026-10"| RCD_BASE_MKT_FLOW
+    NIELSEN_MT_SRC --> nielsen_market_track_query
+    NIQ_DISCOVER --> nielsen_market_track_query
+    RCD_DN_DP_EAN_NIQ -.->|"disabled input"| RCD_BASE_MKT_FLOW
+    nielsen_market_track_query --> RCD_NIELSEN_MT_JOIN_DN_DP_EAN_NIQ
+    RCD_NIELSEN_MT_JOIN_DN_DP_EAN_NIQ --> RCD_BASE_MKT_FLOW
+    RCD_MASTER_PRODUCT --> RCD_BASE_MKT_FLOW
+    RCD_MASTER_STORES --> RCD_BASE_MKT_FLOW
+    RCD_PARA_RETIRAR --> RCD_BASE_MKT_FLOW
+    RCD_SORT_REC_NACIONAL --> RCD_BASE_MKT_FLOW
+    RCD_BASE_MKT_FLOW -->|"end of flow"| RCD_TAB_BASE_MKT
+    RCD_BASE_MKT_FLOW -->|"mid-flow"| RCD_TAB_MKT_P_MASTER_FLOW
+    RCD_NIELSEN_ST_JOIN_DN_DP_EAN_NIQ[("RCD_NIELSEN_ST_JOIN_DN_DP_EAN_NIQ<br/><i>old, not refreshed</i>")]
+    RCD_BASE_MKT_FLOW -. "disabled branch, last 2026-10-27" .-> RCD_NIELSEN_ST_JOIN_DN_DP_EAN_NIQ
+
+    %% ---------- Market: IQVIA ----------
+    RCD_BASE_IQVIA_FLOW["RCD_BASE_IQVIA_FLOW<br/><i>8915, manual</i>"]
+    RCD_TAB_IQVIA_P_MASTER_FLOW[("RCD_TAB_IQVIA_P_MASTER_FLOW")]
+    IQVIA_MKT_26_ENXAGUANTES --> RCD_BASE_IQVIA_FLOW
+    RCD_MASTER_IQVIA -. "until 2026-11-03 (Q52)" .-> RCD_BASE_IQVIA_FLOW
+    RCD_PARA_RETIRAR --> RCD_BASE_IQVIA_FLOW
+    RCD_BASE_IQVIA_FLOW --> RCD_TAB_IQVIA_P_MASTER_FLOW
+
+    %% ---------- Master flows ----------
+    RCD_MASTER_FLOW_1["RCD_MASTER_FLOW_1 (6633)<br/>POS checks & distribution"]
+    RCD_MASTER_FLOW_2["RCD_MASTER_FLOW_2 (6634)<br/>customer + market resumo"]
+    RCD_MASTER_FLOW_3["RCD_MASTER_FLOW_3 (6642)<br/>scorecard"]
+    RCD_MASTER_FLOW_4["RCD_MASTER_FLOW_4 (6297)<br/>customer + market completo<br/><b>paused since 2026-11-13 (Q53)</b>"]
+
+    POS_IN --> RCD_MASTER_FLOW_1
+    POS_IN --> RCD_MASTER_FLOW_2
+    POS_IN --> RCD_MASTER_FLOW_3
+    POS_IN --> RCD_MASTER_FLOW_4
+    RCD_ATACADAO --> RCD_MASTER_FLOW_1
+    RCD_ATACADAO --> RCD_MASTER_FLOW_2
+    RCD_ATACADAO -. "loaded, not connected (Q38)" .-> RCD_MASTER_FLOW_3
+    RCD_T1_SAVEGNAGO -. "loaded, not connected (Q38)" .-> RCD_MASTER_FLOW_4
+    RCD_ATACADAO --> RCD_MASTER_FLOW_4
+    MASTERS --> RCD_MASTER_FLOW_1
+    MASTERS --> RCD_MASTER_FLOW_2
+    MASTERS --> RCD_MASTER_FLOW_3
+    MASTERS --> RCD_MASTER_FLOW_4
+    RCD_GRUPO_CARREFOUR -. "disabled 2026-10-26 (Q40)" .-> RCD_MASTER_FLOW_1
+    RCD_GRUPO_CARREFOUR -. "disabled" .-> RCD_MASTER_FLOW_2
+    RCD_GRUPO_CARREFOUR -. "disabled" .-> RCD_MASTER_FLOW_4
+    RCD_TAB_MKT_P_MASTER_FLOW --> RCD_MASTER_FLOW_2
+    RCD_TAB_MKT_P_MASTER_FLOW --> RCD_MASTER_FLOW_3
+    RCD_TAB_MKT_P_MASTER_FLOW --> RCD_MASTER_FLOW_4
+    RCD_TAB_IQVIA_P_MASTER_FLOW --> RCD_MASTER_FLOW_2
+    RCD_TAB_IQVIA_P_MASTER_FLOW --> RCD_MASTER_FLOW_4
+    RCD_SORT_REC --> RCD_MASTER_FLOW_2
+    RCD_SORT_REC_NACIONAL --> RCD_MASTER_FLOW_4
+    RCD_LANCAMENTOS_CP --> RCD_MASTER_FLOW_4
+
+    %% ---------- Outputs ----------
+    RCD_TAB_STORE_CLASSIFICATION[("RCD_TAB_STORE_CLASSIFICATION")]
+    RCD_TAB_CONFERENCE[("RCD_TAB_CONFERENCE")]
+    RCD_DOT_ANALISE_CUSTOMER[("RCD_DOT_ANALISE_CUSTOMER")]
+    RCD_TAB_MKT_CUSTOMER_RESUMO[("RCD_TAB_MKT_CUSTOMER_RESUMO")]
+    RCD_TAB_PROD_CLASSIFICATION[("RCD_TAB_PROD_CLASSIFICATION")]
+    RCD_TAB_SCORECARD[("RCD_TAB_SCORECARD")]
+    RCD_TAB_MKT_CUSTOMER_COMPLETO[("RCD_TAB_MKT_CUSTOMER_COMPLETO")]
+
+    RCD_MASTER_FLOW_1 --> RCD_TAB_STORE_CLASSIFICATION
+    RCD_MASTER_FLOW_1 --> RCD_TAB_CONFERENCE
+    RCD_MASTER_FLOW_1 --> RCD_DOT_ANALISE_CUSTOMER
+    RCD_MASTER_FLOW_2 --> RCD_TAB_MKT_CUSTOMER_RESUMO
+    RCD_MASTER_FLOW_2 --> RCD_TAB_PROD_CLASSIFICATION
+    RCD_MASTER_FLOW_3 --> RCD_TAB_SCORECARD
+    RCD_MASTER_FLOW_4 --> RCD_TAB_MKT_CUSTOMER_COMPLETO
+
+    %% ---------- Seen in 2026-10-26 data dictionaries (flow undocumented) ----------
+    RCD_MKT_DPSP_IQVIA[("RCD_MKT_DPSP_IQVIA<br/>IQVIA vs MKT vs DPSP")]
+    RCD_MASTER_IQVIA -.-> RCD_MKT_DPSP_IQVIA
+    Retailer_POS_datasets -.-> RCD_MKT_DPSP_IQVIA
+
+    %% ---------- Atacadão Norte pilot (documented 2026-11-18) ----------
+    RCD_T1_ATACADAO_NORTE[("RCD_T1_ATACADAO NORTE<br/><i>one of the retailer datasets</i>")]
+    RCD_MASTER_PRODUCT_2[("RCD_MASTER_PRODUCT<br/><i>second copy f5e11ab5 (Q41)</i>")]
+    RCD_PROJETO_ATACADAO_NORTE["RCD | PROJETO ATACADAO NORTE<br/><i>9582, weekdays</i>"]
+    RCD_ATACADAO_DASH[("RCD_ATACADÃO DASH")]
+    RCD_T1_ATACADAO_NORTE --> RCD_PROJETO_ATACADAO_NORTE
+    RCD_MASTER_STORES --> RCD_PROJETO_ATACADAO_NORTE
+    RCD_MASTER_PRODUCT_2 --> RCD_PROJETO_ATACADAO_NORTE
+    RCD_NIELSEN_ST -->|"AREA VIII"| RCD_PROJETO_ATACADAO_NORTE
+    RCD_PROJETO_ATACADAO_NORTE --> RCD_ATACADAO_DASH
+
+    %% ---------- Added 2026-11-23 (kept last so the linkStyle indexes above don't move) ----------
+    RCD_TAB_BASE_MKT_APP[("RCD_TAB_BASE_MKT_APP<br/><i>app output, since 2026-11-19</i>")]
+    RCD_BASE_MKT_FLOW -->|"APP branch"| RCD_TAB_BASE_MKT_APP
+    RCD_BASE_MKT_SCANNTRACK_DESCONTINUADO_28_11_2026["RCD_BASE_MKT_SCANNTRACK_DESCONTINUADO_28.11.2026<br/><i>11543, untagged, manual</i>"]
+    RCD_NIELSEN_ST_JOIN_DN_DP_EAN_DESCONTINUADA[("RCD_NIELSEN_ST_JOIN_DN_DP_EAN_DESCONTINUADA")]
+    RCD_NIELSEN_ST --> RCD_BASE_MKT_SCANNTRACK_DESCONTINUADO_28_11_2026
+    RCD_DN_DP_EAN_NIQ --> RCD_BASE_MKT_SCANNTRACK_DESCONTINUADO_28_11_2026
+    RCD_BASE_MKT_SCANNTRACK_DESCONTINUADO_28_11_2026 --> RCD_NIELSEN_ST_JOIN_DN_DP_EAN_DESCONTINUADA
+
+    classDef pipeline fill:#e8f0fe,stroke:#4a6fa5,color:#1a2b45;
+    classDef unknown fill:#fff4e5,stroke:#c77700,stroke-dasharray:4 3,color:#5a3600;
+    classDef stopped fill:#fdecea,stroke:#c0392b,stroke-width:2px,color:#5c1a12;
+    class higienizador_sellout,RCD_MASTER_SCANTECH_FLOW,RCD_ATACADAO_DATASHOPPER,RCD_DATA_SHOPPER,RCD_BASE_MKT_FLOW,RCD_BASE_IQVIA_FLOW,RCD_MASTER_FLOW_1,RCD_MASTER_FLOW_2,RCD_MASTER_FLOW_3,nielsen_scan_track_query,nielsen_market_track_query,RCD_PROJETO_ATACADAO_NORTE,RCD_BASE_MKT_SCANNTRACK_DESCONTINUADO_28_11_2026 pipeline;
+    class RCD_MASTER_FLOW_4 stopped;
+    %% Red = configured but not running. linkStyle counts links from 0 in the order they're written, so adding
+    %% an edge above one of these shifts it: 13 NIELSEN_ST, 16 DN_DP_EAN_NIQ (disabled inputs of 6352),
+    %% 25 6352's disabled branch, 27 RCD_MASTER_IQVIA (old IQVIA input), 36 ATACADÃO → F3 and 37 SAVEGNAGO → F4 (Q38),
+    %% 43-45 Carrefour (Q40).
+    linkStyle 13,16,25,27,36,37,43,44,45 stroke:#c0392b,stroke-dasharray:6 4;

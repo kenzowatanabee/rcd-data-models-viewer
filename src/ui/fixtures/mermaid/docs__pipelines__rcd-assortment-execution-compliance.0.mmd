@@ -1,0 +1,25 @@
+flowchart TD
+    RECS[("RCD_ASSORTMENT_RECOMMENDATIONS")]
+    POS[("RCD_POS_BASE")] --> F["Filter Rows: YYYYMM >= 202501"]
+    F --> SEL["Select Columns: YYYYMM as YM_SALES,<br/>cluster, size and product attributes from the POS base"]
+    SEL --> AGG["aggregateSalesByCluster: SUM sales per month, customer, banner, cluster, size, EAN"]
+    AGG --> SQL["Join Data (SQL): recommendation cycles, gaps, launches"]
+    RECS --> SQL
+    SQL --> SQL1["SQL 1: FINAL_EXEC, DIRECTIVE, COMPLIANCE_STATUS"]
+    SQL1 --> MP["joinMasterProduct + reorderFinalTable"]
+    PR[("RCD_MASTER_PRODUCT")] --> DD["masterProductEan + dedupeMasterProduct<br/>EAN without leading zeros, one row per EAN"]
+    DD --> MP
+    MP --> OUT[("RCD_ASSORTMENT_COMPLIANCE_TABLE")]
+    PRR[("RCD_PARA_RETIRAR")] --> PRE["paraRetirarEan<br/>EAN without leading zeros"]
+    PRE --> V7["validation_7: recommended EANs lost upstream"]
+    RECS --> V7
+    DD --> V7
+    POS --> V7
+    RECS --> CHK["validation_8, temp_query_3: labels<br/>validation_5: sources and partial months"]
+    POS --> CHK
+    MP --> REC["validation_3: output vs POS base<br/>temp_query_4: what the app shows per cell"]
+    POS --> REC
+    AGG -.-> SCR[("14 scratch outputs<br/>validation_*, temp_query_*, aggregated_sales_by_cluster, test_join_values")]
+    V7 -.-> SCR
+    CHK -.-> SCR
+    REC -.-> SCR
