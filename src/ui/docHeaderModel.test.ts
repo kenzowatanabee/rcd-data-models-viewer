@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { docHeader } from './docHeaderModel';
+import { docHeader, markdownLink } from './docHeaderModel';
 import { splitFrontMatter } from './frontMatter';
 
 const header = (yaml: string) =>
@@ -64,5 +64,16 @@ describe('docHeader', () => {
       facts: [],
       aliases: [],
     });
+  });
+});
+
+describe('markdownLink', () => {
+  it('links the name to the repo path, escaping what Markdown would read', () => {
+    expect(markdownLink('RCD_X', 'docs/datasets/x.md')).toBe(
+      '[RCD_X](docs/datasets/x.md)',
+    );
+    expect(markdownLink('a [b]', 'docs/a b.md')).toBe(
+      '[a \\[b\\]](docs/a%20b.md)',
+    );
   });
 });

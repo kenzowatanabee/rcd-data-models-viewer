@@ -16,6 +16,7 @@ export type ShortcutId =
   | 'next-doc'
   | 'previous-doc'
   | 'top'
+  | 'toggle-source'
   | 'graph-fit'
   | 'graph-actual';
 
@@ -95,6 +96,12 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   },
   { id: 'top', keys: [['t']], label: 'Back to the top', where: 'Doc pages' },
   {
+    id: 'toggle-source',
+    keys: [['m']],
+    label: 'Switch between the rendered page and its Markdown',
+    where: 'Doc pages',
+  },
+  {
     id: 'graph-fit',
     keys: [['f']],
     label: 'Fit everything shown to the window',
@@ -127,7 +134,27 @@ export const LOCAL_KEYS: readonly {
   },
   {
     keys: [['ArrowUp'], ['ArrowDown']],
-    label: 'Move through the docs; Esc clears the filter',
+    label: 'Move through the docs and groups; Esc clears the filter',
+    where: 'Sidebar',
+  },
+  {
+    keys: [['ArrowRight'], ['ArrowLeft']],
+    label: 'Open or close a group; ← from a doc goes to its group',
+    where: 'Sidebar',
+  },
+  {
+    keys: [['Home'], ['End']],
+    label: 'First or last item',
+    where: 'Sidebar',
+  },
+  {
+    keys: [['p']],
+    label: 'Pin or unpin the focused doc',
+    where: 'Sidebar',
+  },
+  {
+    keys: [['a']],
+    label: 'Type the start of a name (after RCD_ and the like) to jump to it',
     where: 'Sidebar',
   },
   {

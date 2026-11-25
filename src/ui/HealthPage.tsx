@@ -32,6 +32,8 @@ interface Props {
   data: GraphResponse | null;
   /** Section named in the address, to scroll to. */
   section: string | null;
+  /** A filter from the address, such as a doc's path from the sidebar. */
+  query?: string | null;
 }
 
 function DocLink({ doc }: { doc: { file: string | null; name: string } }) {
@@ -496,12 +498,18 @@ function Section({
 }
 
 /** Every gap in the docs as a to-do list, refreshed when a doc changes. */
-export function HealthPage({ data, section }: Props) {
+export function HealthPage({ data, section, query: asked = null }: Props) {
   const report = useMemo(
     () => (data === null ? null : healthReport(data.graph)),
     [data],
   );
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(asked ?? '');
+  // A new filter in the address replaces the one typed
+  const [lastAsked, setLastAsked] = useState(asked);
+  if (asked !== lastAsked) {
+    setLastAsked(asked);
+    setQuery(asked ?? '');
+  }
   // Sections the reader opened or closed, against their default
   const [flipped, setFlipped] = useState<Set<SectionId>>(() => new Set());
 

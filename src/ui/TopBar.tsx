@@ -2,16 +2,19 @@ import {
   FileText,
   Folder,
   HeartPulse,
+  Menu,
   Search,
   Monitor,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Rows3,
+  Rows4,
   Sun,
   Waypoints,
 } from 'lucide-react';
 
-import { folderName, type ThemePreference } from './settings';
+import { folderName, type Density, type ThemePreference } from './settings';
 import { IS_MAC, Keys } from './ShortcutLayer';
 import { useTheme } from './theme';
 
@@ -28,8 +31,21 @@ interface Props {
   onPalette: () => void;
   docsPath: string | null;
   /** Null where the section has no sidebar. */
-  sidebar: { collapsed: boolean; onToggle: () => void } | null;
+  sidebar: {
+    /** Docked and hidden, or (as a drawer) closed. */
+    collapsed: boolean;
+    /** Shown as an overlay drawer on narrow windows. */
+    drawer: boolean;
+    onToggle: () => void;
+  } | null;
+  density: Density;
+  onDensity: (density: Density) => void;
 }
+
+const DENSITIES: { value: Density; label: string; icon: typeof Sun }[] = [
+  { value: 'comfortable', label: 'Comfortable rows', icon: Rows3 },
+  { value: 'compact', label: 'Compact rows', icon: Rows4 },
+];
 
 const THEMES: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
   { value: 'light', label: 'Light theme', icon: Sun },
@@ -46,6 +62,8 @@ export function TopBar({
   onPalette,
   docsPath,
   sidebar,
+  density,
+  onDensity,
 }: Props) {
   const { preference, setPreference } = useTheme();
   const sections = [
@@ -55,20 +73,35 @@ export function TopBar({
   ] as const;
   const shortcut = IS_MAC ? '⌘K' : 'Ctrl+K';
   return (
-    <header className="topbar">
+    // The bar is where a frameless window would be dragged; its controls
+    // opt out (see .drag-region in layout.css)
+    <header className="topbar drag-region">
       {sidebar !== null && (
         <button
           type="button"
           className="btn btn-ghost btn-icon"
           aria-label={
-            sidebar.collapsed ? 'Show the sidebar' : 'Hide the sidebar'
+            sidebar.drawer
+              ? 'Show the docs list'
+              : sidebar.collapsed
+                ? 'Show the sidebar'
+                : 'Hide the sidebar'
           }
-          aria-controls="sidebar"
+          aria-controls={sidebar.drawer ? undefined : 'sidebar'}
           aria-expanded={!sidebar.collapsed}
-          title={sidebar.collapsed ? 'Show the sidebar' : 'Hide the sidebar'}
+          aria-keyshortcuts="["
+          title={
+            sidebar.drawer
+              ? 'Show the docs list ([)'
+              : sidebar.collapsed
+                ? 'Show the sidebar ([)'
+                : 'Hide the sidebar ([)'
+          }
           onClick={sidebar.onToggle}
         >
-          {sidebar.collapsed ? (
+          {sidebar.drawer ? (
+            <Menu size={16} aria-hidden="true" />
+          ) : sidebar.collapsed ? (
             <PanelLeftOpen size={16} aria-hidden="true" />
           ) : (
             <PanelLeftClose size={16} aria-hidden="true" />
@@ -83,9 +116,13 @@ export function TopBar({
         <ul>
           {sections.map(({ id, label, href, icon: Icon }) => (
             <li key={id}>
-              <a href={href} aria-current={section === id ? 'page' : undefined}>
+              <a
+                href={href}
+                title={label}
+                aria-current={section === id ? 'page' : undefined}
+              >
                 <Icon size={15} aria-hidden="true" />
-                {label}
+                <span className="topnav-label">{label}</span>
                 {id === 'health' && issues !== null && issues > 0 && (
                   <span
                     className="nav-badge tabular"
@@ -119,6 +156,25 @@ export function TopBar({
           <span>{folderName(docsPath)}</span>
         </span>
       )}
+      <span className="topbar-divider" aria-hidden="true" />
+      <div
+        className="segmented segmented-icons"
+        role="group"
+        aria-label="Row density"
+      >
+        {DENSITIES.map(({ value, label, icon: Icon }) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={density === value}
+            aria-label={label}
+            title={label}
+            onClick={() => onDensity(value)}
+          >
+            <Icon size={14} aria-hidden="true" />
+          </button>
+        ))}
+      </div>
       <div
         className="segmented segmented-icons"
         role="group"

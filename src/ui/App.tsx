@@ -3,10 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { GraphResponse, HeadingsResponse } from '../server/api';
 import { fetchGraph, fetchHeadings, useDocsVersion } from './api';
+import { ModalDialog } from './Dialog';
 import { DocView } from './DocView';
 import { GraphPage } from './GraphPage';
-import { healthReport, issueCount } from './health';
+import { healthReport, issueCount, issuesByFile } from './health';
 import { HealthPage } from './HealthPage';
+import { CONTENT_MIN, fitColumns, layoutMode } from './layoutModel';
 import { Palette } from './Palette';
 import {
   adjacentDoc,
@@ -14,20 +16,30 @@ import {
   contentItems,
   parseRecent,
   pushRecent,
-  sidebarOrder,
   type PaletteItem,
 } from './paletteItems';
 import { docHash, graphHash, healthHash, parseHash } from './route';
 import {
+  ASIDE_MAX,
+  ASIDE_MIN,
   STORAGE_KEYS,
   clampSidebarWidth,
+  parseAsideWidth,
+  parseDensity,
   parseFlag,
+  parseGroupBy,
+  parsePinned,
   parseSidebarWidth,
+  togglePinned,
+  type Density,
+  type GroupBy,
 } from './settings';
 import { ShortcutHelp, useShortcut } from './ShortcutLayer';
 import { Sidebar } from './Sidebar';
+import { familyBands, navOrder, sidebarDocs, trailOf } from './sidebarModel';
 import { StateView } from './State';
 import { readSetting, writeSetting } from './storage';
+import { Summary } from './Summary';
 import { useTheme } from './theme';
 import { TopBar } from './TopBar';
 
@@ -92,18 +104,68 @@ export function App() {
         : 'docs';
 
   const viewport = useViewportWidth();
+  const mode = layoutMode(viewport);
   const [storedWidth, setStoredWidth] = useState(() =>
     parseSidebarWidth(readSetting(STORAGE_KEYS.sidebarWidth)),
   );
-  const sidebarWidth = clampSidebarWidth(storedWidth, viewport);
+  const [collapsed, setCollapsed] = useState(() =>
+    parseFlag(readSetting(STORAGE_KEYS.sidebarCollapsed)),
+  );
+  const [storedAside, setStoredAside] = useState(() =>
+    parseAsideWidth(readSetting(STORAGE_KEYS.docAsideWidth)),
+  );
+  const [asideCollapsed, setAsideCollapsedState] = useState(() =>
+    parseFlag(readSetting(STORAGE_KEYS.docAsideCollapsed)),
+  );
+  const sidebarDocked = section === 'docs' && mode.sidebar === 'docked';
+  const columns = fitColumns(
+    viewport,
+    sidebarDocked && !collapsed ? storedWidth : null,
+    mode.aside === 'docked' && !asideCollapsed ? storedAside : null,
+  );
+  const sidebarWidth = sidebarDocked
+    ? columns.sidebar
+    : clampSidebarWidth(storedWidth, viewport);
   const setSidebarWidth = useCallback((width: number) => {
     setStoredWidth(width);
     writeSetting(STORAGE_KEYS.sidebarWidth, String(width));
   }, []);
-  const [collapsed, setCollapsed] = useState(() =>
-    parseFlag(readSetting(STORAGE_KEYS.sidebarCollapsed)),
-  );
+  // Widths the drag may reach: what leaves the content its minimum
+  const clampSidebar = (width: number) =>
+    fitColumns(
+      viewport,
+      width,
+      mode.aside === 'docked' && !asideCollapsed ? columns.aside : null,
+    ).sidebar;
+  const clampAside = (width: number) => {
+    const room =
+      viewport -
+      CONTENT_MIN -
+      (sidebarDocked && !collapsed ? columns.sidebar : 0);
+    const value = Number.isFinite(width) ? width : ASIDE_MIN;
+    return Math.round(Math.max(ASIDE_MIN, Math.min(ASIDE_MAX, room, value)));
+  };
+  const setAsideWidth = (width: number) => {
+    setStoredAside(width);
+    writeSetting(STORAGE_KEYS.docAsideWidth, String(width));
+  };
+  const setAsideCollapsed = (value: boolean) => {
+    setAsideCollapsedState(value);
+    writeSetting(STORAGE_KEYS.docAsideCollapsed, String(value));
+  };
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Opening a doc from the drawer closes it
+  const [drawerHash, setDrawerHash] = useState(hash);
+  if (drawerHash !== hash) {
+    setDrawerHash(hash);
+    setDrawerOpen(false);
+  }
+  const sidebarDrawer = section === 'docs' && mode.sidebar === 'drawer';
   const setSidebarCollapsed = (value: boolean) => {
+    if (sidebarDrawer) {
+      setDrawerOpen(!value);
+      return;
+    }
     // Hiding the sidebar with focus in it would drop focus to the page
     if (
       value &&
@@ -114,6 +176,33 @@ export function App() {
     setCollapsed(value);
     writeSetting(STORAGE_KEYS.sidebarCollapsed, String(value));
   };
+  const sidebarHidden = sidebarDrawer ? !drawerOpen : collapsed;
+
+  const [groupBy, setGroupByState] = useState(() =>
+    parseGroupBy(readSetting(STORAGE_KEYS.groupBy)),
+  );
+  const setGroupBy = (value: GroupBy) => {
+    setGroupByState(value);
+    writeSetting(STORAGE_KEYS.groupBy, value);
+  };
+  const [pinned, setPinned] = useState(() =>
+    parsePinned(readSetting(STORAGE_KEYS.pinned)),
+  );
+  const togglePin = (file: string) => {
+    const next = togglePinned(pinned, file);
+    setPinned(next);
+    writeSetting(STORAGE_KEYS.pinned, JSON.stringify(next));
+  };
+  const [density, setDensityState] = useState(() =>
+    parseDensity(readSetting(STORAGE_KEYS.density)),
+  );
+  const setDensity = (value: Density) => {
+    setDensityState(value);
+    writeSetting(STORAGE_KEYS.density, value);
+  };
+  useEffect(() => {
+    document.documentElement.dataset.density = density;
+  }, [density]);
 
   const filterRef = useRef<HTMLInputElement>(null);
   const [focusFilter, setFocusFilter] = useState(0);
@@ -132,7 +221,7 @@ export function App() {
     }
     // Opens a collapsed sidebar first; the filter is focused once shown
     setSidebarCollapsed(false);
-    setFocusFilter((n) => n + 1);
+    if (!sidebarDrawer) setFocusFilter((n) => n + 1);
   });
 
   const go = (to: string) => {
@@ -144,11 +233,19 @@ export function App() {
   useShortcut('go-health', () => go(healthHash()));
   useShortcut(
     'toggle-sidebar',
-    section === 'docs' ? () => setSidebarCollapsed(!collapsed) : null,
+    section === 'docs' ? () => setSidebarCollapsed(!sidebarHidden) : null,
+  );
+  const docs = useMemo(
+    () => (data === null ? null : sidebarDocs(data)),
+    [data],
+  );
+  const bands = useMemo(
+    () => (data === null ? [] : familyBands(data.graph)),
+    [data],
   );
   const order = useMemo(
-    () => (data === null ? [] : sidebarOrder(data)),
-    [data],
+    () => (docs === null ? [] : navOrder(docs, groupBy, bands)),
+    [docs, groupBy, bands],
   );
   const step = (by: 1 | -1) => {
     const next = adjacentDoc(
@@ -174,6 +271,17 @@ export function App() {
   const [recent, setRecent] = useState(() =>
     parseRecent(readSetting(STORAGE_KEYS.recent)),
   );
+  // Every doc opened counts as recent, in the store quick open also uses
+  const openFile = route.view === 'doc' ? route.file : null;
+  const [recordedFile, setRecordedFile] = useState<string | null>(null);
+  if (openFile !== null && openFile !== recordedFile) {
+    setRecordedFile(openFile);
+    if (recent[0] !== openFile) {
+      const next = pushRecent(recent, openFile);
+      setRecent(next);
+      writeSetting(STORAGE_KEYS.recent, JSON.stringify(next));
+    }
+  }
   const openPalette = () => {
     setPaletteOpen(true);
     if (headings?.version === version) return;
@@ -207,7 +315,7 @@ export function App() {
     file: route.view === 'doc' ? route.file : null,
     node: graphNode,
     nodeFile,
-    sidebarCollapsed: collapsed,
+    sidebarCollapsed: sidebarHidden,
   });
   const runItem = (item: PaletteItem, inGraph: boolean) => {
     setPaletteOpen(false);
@@ -238,7 +346,7 @@ export function App() {
       case 'theme-system':
         return setPreference('system');
       case 'toggle-sidebar':
-        return setSidebarCollapsed(!collapsed);
+        return setSidebarCollapsed(!sidebarHidden);
       case 'show-in-graph':
         if (graphNode !== null)
           go(graphHash({ focus: graphNode, node: graphNode }));
@@ -256,10 +364,29 @@ export function App() {
     }
   };
 
-  const issues = useMemo(
-    () => (data === null ? null : issueCount(healthReport(data.graph))),
+  const report = useMemo(
+    () => (data === null ? null : healthReport(data.graph)),
     [data],
   );
+  const issues = report === null ? null : issueCount(report);
+  const issuesOf = useMemo(
+    () =>
+      report === null || docs === null
+        ? new Map<string, number>()
+        : issuesByFile(
+            report,
+            docs.map((doc) => doc.file),
+          ),
+    [report, docs],
+  );
+  const currentDoc =
+    route.view === 'doc'
+      ? (docs?.find((doc) => doc.file === route.file) ?? null)
+      : null;
+  const trail =
+    currentDoc === null
+      ? ['Docs']
+      : ['Docs', ...trailOf(currentDoc, groupBy, bands)];
 
   const file = route.view === 'doc' ? route.file : LANDING_DOC;
   const retry = (
@@ -271,6 +398,27 @@ export function App() {
       <RotateCw size={14} aria-hidden="true" />
       Try again
     </button>
+  );
+
+  const sidebar = (width: number | null) => (
+    <Sidebar
+      docs={docs}
+      bands={bands}
+      issues={issuesOf}
+      issueTotal={issues}
+      failed={data === null && graphError !== null}
+      current={route.view === 'doc' ? file : null}
+      filterRef={filterRef}
+      width={width}
+      clampWidth={clampSidebar}
+      onWidth={setSidebarWidth}
+      hidden={width !== null && collapsed}
+      groupBy={groupBy}
+      onGroupBy={setGroupBy}
+      pinned={pinned}
+      onTogglePin={togglePin}
+      recent={recent}
+    />
   );
 
   return (
@@ -298,24 +446,17 @@ export function App() {
           sidebar={
             section === 'docs'
               ? {
-                  collapsed,
-                  onToggle: () => setSidebarCollapsed(!collapsed),
+                  collapsed: sidebarHidden,
+                  drawer: sidebarDrawer,
+                  onToggle: () => setSidebarCollapsed(!sidebarHidden),
                 }
               : null
           }
+          density={density}
+          onDensity={setDensity}
         />
         <div className="frame">
-          {section === 'docs' && (
-            <Sidebar
-              data={data}
-              failed={data === null && graphError !== null}
-              current={route.view === 'doc' ? file : null}
-              filterRef={filterRef}
-              width={sidebarWidth}
-              onWidth={setSidebarWidth}
-              hidden={collapsed}
-            />
-          )}
+          {section === 'docs' && !sidebarDrawer && sidebar(sidebarWidth)}
           <main id="main" className="main" tabIndex={-1}>
             {graphError !== null && data !== null && (
               <div className="banner" role="alert">
@@ -344,14 +485,46 @@ export function App() {
             ) : route.view === 'graph' ? (
               <GraphPage data={data} route={route} />
             ) : route.view === 'health' ? (
-              <HealthPage data={data} section={route.section} />
+              <HealthPage
+                data={data}
+                section={route.section}
+                query={route.query}
+              />
             ) : (
               <DocView
                 file={file}
                 anchor={route.view === 'doc' ? route.anchor : null}
+                source={route.view === 'doc' && route.source}
+                line={route.view === 'doc' ? route.line : null}
                 data={data}
                 version={version}
                 landing={route.view === 'home'}
+                home={
+                  data !== null &&
+                  docs !== null && (
+                    <Summary
+                      data={data}
+                      docs={docs}
+                      pinned={pinned}
+                      recent={recent}
+                    />
+                  )
+                }
+                trail={trail}
+                pinned={pinned.includes(file)}
+                onTogglePin={
+                  route.view === 'doc' && currentDoc !== null
+                    ? () => togglePin(file)
+                    : null
+                }
+                aside={{
+                  placement: mode.aside,
+                  width: columns.aside || clampAside(storedAside),
+                  clampWidth: clampAside,
+                  onWidth: setAsideWidth,
+                  collapsed: asideCollapsed,
+                  onCollapsed: setAsideCollapsed,
+                }}
               />
             )}
           </main>
@@ -368,6 +541,17 @@ export function App() {
         />
       )}
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+      {sidebarDrawer && drawerOpen && (
+        <ModalDialog
+          className="drawer drawer-left"
+          label="Docs"
+          onClose={() => setDrawerOpen(false)}
+          closeOnBackdrop
+          initialFocus={filterRef}
+        >
+          {sidebar(null)}
+        </ModalDialog>
+      )}
     </>
   );
 }

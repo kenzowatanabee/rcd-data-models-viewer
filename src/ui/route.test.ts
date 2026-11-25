@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_GRAPH, docHash, graphHash, parseHash } from './route';
+import {
+  DEFAULT_GRAPH,
+  docHash,
+  graphHash,
+  healthHash,
+  parseHash,
+} from './route';
+
+const plain = { source: false, line: null };
 
 describe('parseHash', () => {
   it('reads a doc and an optional anchor', () => {
@@ -8,11 +16,13 @@ describe('parseHash', () => {
       view: 'doc',
       file: 'docs/datasets/x.md',
       anchor: null,
+      ...plain,
     });
     expect(parseHash('#/doc/docs/open-questions.md#q22-a_b')).toEqual({
       view: 'doc',
       file: 'docs/open-questions.md',
       anchor: 'q22-a_b',
+      ...plain,
     });
   });
 
@@ -33,9 +43,54 @@ describe('parseHash', () => {
         view: 'doc',
         file,
         anchor,
+        ...plain,
       });
     }
     expect(docHash('docs/lineage.md')).toBe('#/doc/docs/lineage.md');
+  });
+
+  it('reads the Markdown view and a source line', () => {
+    expect(docHash('docs/a.md', null, { source: true, line: 42 })).toBe(
+      '#/doc/docs/a.md?view=md&line=42',
+    );
+    expect(parseHash('#/doc/docs/a.md?view=md&line=42#cols')).toEqual({
+      view: 'doc',
+      file: 'docs/a.md',
+      anchor: 'cols',
+      source: true,
+      line: 42,
+    });
+    // A line only means something in the Markdown view; junk is ignored
+    expect(parseHash('#/doc/docs/a.md?line=4')).toMatchObject(plain);
+    expect(parseHash('#/doc/docs/a.md?view=md&line=-3')).toMatchObject({
+      source: true,
+      line: null,
+    });
+    // An encoded `?` stays part of the file name
+    expect(parseHash(docHash('docs/why?.md', null, { source: true }))).toEqual({
+      view: 'doc',
+      file: 'docs/why?.md',
+      anchor: null,
+      source: true,
+      line: null,
+    });
+  });
+});
+
+describe('health routes', () => {
+  it('reads a section and a filter', () => {
+    expect(parseHash('#/health')).toEqual({
+      view: 'health',
+      section: null,
+      query: null,
+    });
+    expect(parseHash(healthHash('one-sided', 'docs/a b.md'))).toEqual({
+      view: 'health',
+      section: 'one-sided',
+      query: 'docs/a b.md',
+    });
+    expect(healthHash()).toBe('#/health');
+    expect(healthHash('status')).toBe('#/health#status');
   });
 });
 

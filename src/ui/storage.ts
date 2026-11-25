@@ -35,3 +35,20 @@ export function useMediaQuery(query: string): boolean {
 
 export const useReducedMotion = () =>
   useMediaQuery('(prefers-reduced-motion: reduce)');
+
+// Per-tab memory: kept across reloads of this tab, forgotten when it closes
+export function readSession(key: string): string | null {
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function writeSession(key: string, value: string): void {
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // Not kept; the choice still applies until the page reloads
+  }
+}

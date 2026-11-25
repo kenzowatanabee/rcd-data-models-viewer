@@ -33,31 +33,85 @@ What it shows:
 
 - **Top bar:** the three sections, Docs, Lineage graph and Docs health ("Docs" returns
   to the last doc open; Docs health shows how many things there are to fix), "Go to…"
-  with its shortcut (quick open, see below), the name of the docs folder being viewed (the full path on hover), and the
-  theme: light, dark or the system's. The theme is remembered, and diagrams and the
-  graph switch with it.
-- **Sidebar:** datasets (with their `layer`, as a coloured marker and its name),
-  pipelines, and the other Markdown files (`README.md`, `docs/*.md`, `guides/*.md`),
-  in groups with counts that can be collapsed. `/` focuses the filter, Esc clears it,
-  and the arrow keys move through the list. Drag the sidebar's edge to resize it
-  (or focus the edge and use the arrow keys; double-click resets it), and hide it with
-  the button at the left of the top bar. The width, the hidden state and the collapsed
-  groups are remembered. The filter matches names and
-  aliases, ignoring case, accents and the difference between spaces, hyphens and
-  underscores (`hierarquia soa` finds `RCD_HIERARQUIA_SOA`).
-- **Doc page:** a header with the doc's title (its `# heading`, shown once), the kind,
-  layer and status as badges (`draft` is dashed amber, `reviewed` solid green), the
-  dataset's `grain` on its own line, the platform, Domo id, last update, aliases, the
-  file path with a copy button, and "Show in graph" for datasets and pipelines. Docs
-  without front-matter get the title and path only. The body is set for reading: prose
-  keeps to about 78 characters a line while tables, code and diagrams use the full
-  width. Hovering a heading shows a link icon that puts the section in the address and
-  copies it.
+  with its shortcut (quick open, see below), the name of the docs folder being viewed
+  (the full path on hover), row density (comfortable or compact) and the theme: light,
+  dark or the system's. Density and theme are remembered, and diagrams and the graph
+  switch with the theme. Below 1100 px the folder name is hidden, and below 960 px the
+  section names and "Go to…" become icons (named on hover and to screen readers). The
+  bar is marked as the drag area for a future frameless desktop window; this has no
+  effect in a browser.
+- **Sidebar:** pinned docs and the last 6 opened (each shown only when not empty), then
+  the docs in groups that can be folded, each with its count:
+  - **Group** chooses how datasets are listed, and is remembered: **Layer** (the
+    default: Source, Dimension, Intermediate, Output, then anything else, each a
+    subgroup with its colour marker), **A–Z** (one list, with the layer after each
+    name) or **Family** (datasets and pipelines in the same bands as the lineage graph:
+    shared lookups, shared feeds, each family and "Not linked to anything"; the graph's
+    undocumented names are left out). Pipelines are one group; other docs are grouped
+    by folder (repository root, `docs/`, `guides/`).
+  - **Rows:** most names share `RCD_` or `RCD_TAB_`, so that prefix is shown muted and
+    the rest at full contrast. When a name does not fit, the prefix becomes `…` so the
+    end of the name, which tells similar names apart, stays visible; the end is cut
+    only if it still does not fit. The full name, title, path, layer, status and
+    aliases are on hover, and the name, layer, status and issue count in the row's
+    accessible name. A dashed amber ring marks `draft`, a green tick `reviewed`. A
+    warning count marks docs named in Docs health; it opens that page filtered to the
+    doc. Hovering a row shows a pin button.
+  - **Filter:** `/` focuses it and Esc clears it (then the chips). It matches names and
+    aliases like quick open: any order of words, ignoring case, accents and separators
+    (`mkt cust compl` finds `RCD_TAB_MKT_CUSTOMER_COMPLETO`), best match first, matched
+    letters underlined. Groups show "matches / total", only groups with matches are
+    listed and they open while filtering; the folding you had comes back when the
+    filter is cleared. "Filters" shows quick filters: the four layers (any of them),
+    `Draft` and `Has issues`, which combine with each other and with the text. With no
+    match, "Clear filters" resets everything.
+  - **Keyboard:** ↑ and ↓ move through groups and docs, → opens a group (or moves into
+    it), ← closes it (or goes from a doc to its group), Home and End go to the ends,
+    `p` pins or unpins the focused doc, and typing letters jumps to the next doc whose
+    name, or the part after its shared prefix, starts with them (so letter shortcuts
+    such as `j` do not fire while a row has focus). Only one row is in the Tab order.
+    Group headers stay at the top while their group scrolls, and the open doc is
+    scrolled into view only when it is out of sight.
+  - The footer has the counts and a link to Docs health with its count. Drag the
+    sidebar's edge to resize it (or focus the edge and use the arrow keys;
+    double-click resets it), and hide it with `[` or the button at the left of the top
+    bar. The width, the hidden state, the folded groups, the pins and the grouping are
+    remembered.
+- **Doc page:** a bar stays at the top with where the doc is (Docs › Datasets › Output ›
+  name, following the grouping), "Rendered | Markdown" (`m`), a pin button and the
+  button for the right-hand column. Below it, a header with the doc's title (its
+  `# heading`), the kind, layer and status as badges (`draft` is dashed amber,
+  `reviewed` solid green), the dataset's `grain` on its own line, the platform, Domo
+  id, last update, aliases, the file path with buttons to copy it and to copy a
+  Markdown link (`[NAME](docs/datasets/x.md)`), and "Show in graph" for datasets and
+  pipelines. Docs without front-matter get the title and path only. The body is set
+  for reading: prose keeps to about 78 characters a line while tables, code and
+  diagrams use the full width. Hovering a heading shows a link icon that puts the
+  section in the address and copies it.
+- **Markdown view:** "Markdown" (or `m`) shows the file exactly as on disk,
+  front-matter included, in a monospace view with line numbers, front-matter keys,
+  headings, code fences, inline code, links and table pipes lightly coloured by a small
+  built-in tokenizer, a "Wrap" switch (remembered) and "Copy all". The text is only
+  ever shown as text, so HTML in a doc never runs. The address gets `?view=md` (reload,
+  back and forward keep it), and a doc left in this view opens in it again in the same
+  tab; other docs are not affected. Switching keeps the section being read in view.
+  "On this page" still works (it scrolls to the heading's line), a line number links
+  to that line (`?view=md&line=42`, highlighted), and a live refresh updates the text
+  and keeps the scroll position.
+- **Layout and the right-hand column:** from 1200 px wide the doc has three columns:
+  sidebar, doc and a right-hand column with the lineage over "On this page". The
+  columns give way (the right-hand one first, neither below its minimum) so the doc
+  column keeps at least 560 px. The right-hand column can be resized by its left edge
+  (arrow keys work too; double-click resets) and folded with `]` or the button in the
+  doc's bar; folded, a thin strip at the window edge brings it back. Width and folding
+  are remembered. Below 1200 px the column becomes a drawer opened with the same button
+  or `]`; below 900 px the sidebar becomes a drawer too, opened from the top bar or with
+  `[` (`/` opens it at the filter). Drawers keep focus inside, close with Esc, a click
+  outside or by opening a doc, return focus to the button that opened them, and do not
+  animate when the system asks for reduced motion.
 - **On this page:** the doc's `##` and `###` headings, highlighting the section being
   read; a click scrolls there (without animation when the system asks for reduced
-  motion, and instantly for long jumps). On wide windows (1200 px and up) it sits in the
-  right-hand column under the lineage, each part scrolling on its own; on narrower ones
-  it is a drop-down in a bar that stays at the top of the doc.
+  motion, and instantly for long jumps).
 - **Tables** scroll inside their own frame, with the header row kept in view and a
   shadow on an edge where columns are cut off. Columns holding only numbers are
   right-aligned. Tables with more than 12 rows get a filter box that hides rows not
@@ -82,15 +136,17 @@ What it shows:
   `<details>` and table filters.
 - **Links:** links to other Markdown files in the repo open in the viewer, `http(s)`
   links open in a new tab, and links to other files or folders are shown greyed out.
-- **Lineage panel** on the right of dataset and pipeline pages (above the doc on
-  narrow windows): the direct upstream and downstream docs from the graph with counts,
-  each with its layer marker as in the sidebar (undocumented names have a dashed hollow
-  marker and are not clickable), and the gaps that involve the doc: one-sided links and
-  ambiguous, unresolved or wrong-kind references, each explained with the front-matter
-  field and the file to fix.
-- **Landing page:** the indexer summary (counts of docs, edges and references, and of
-  each kind of gap, each linking to its section of the health page) and the repo
-  `README.md`.
+- **Lineage panel** in the right-hand column of dataset and pipeline pages: the direct
+  upstream and downstream docs from the graph with counts, each with its layer marker
+  as in the sidebar (undocumented names have a dashed hollow marker and are not
+  clickable), and the gaps that involve the doc: one-sided links and ambiguous,
+  unresolved or wrong-kind references, each explained with the front-matter field and
+  the file to fix.
+- **Landing page:** the counts of datasets, pipelines, other docs, edges and
+  references; the pinned and recent docs; the Docs health sections with their counts,
+  each linking to its section; then the repo `README.md`. Doc pages, the landing page
+  and Docs health share the same page width and padding, and every scrolling area has
+  thin scrollbars in the theme's colours.
 - **Lineage graph** (`#/graph`, in the top bar): see below. There, `/` focuses the
   find box.
 
@@ -141,12 +197,11 @@ a dialog is open, or during input-method composition, and none uses a browser sh
 | `]`                       | doc pages, graph | show or hide the right-hand column or side panel                                    |
 | `j` / `k`, Alt+↓ / Alt+↑  | doc pages        | next / previous doc in the sidebar's order                                          |
 | `t`                       | doc pages        | back to the top                                                                     |
+| `m`                       | doc pages        | switch between the rendered page and its Markdown                                   |
 | `f`, `0`                  | graph            | fit to the window, actual size                                                      |
 
-Two-key sequences must be typed within about a second. On a doc page wide enough for the
-right-hand column, `]` folds it away (remembered); the lineage then sits above the doc
-and the outline becomes the drop-down. The graph keeps its own keys (Esc, arrows and
-Enter on a node) as described below.
+Two-key sequences must be typed within about a second. On a doc page, `]` folds the
+right-hand column away (remembered), or opens it as a drawer on narrower windows.
 
 ### Docs health
 
@@ -171,7 +226,8 @@ of counts at the top links to each section:
 Each section explains what it means and what to change, links every item to its doc (and
 to the graph), folds away (sections with nothing to do start folded and say "All good"),
 and has "Copy as checklist", which copies it as a Markdown to-do list. The filter box
-searches every section. The page updates when a doc is saved.
+searches every section; `#/health?q=<text>` opens the page with it filled in, which is
+where a doc's warning count in the sidebar leads. The page updates when a doc is saved.
 
 ### Diagrams
 

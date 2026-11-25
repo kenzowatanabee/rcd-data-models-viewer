@@ -88,3 +88,7 @@ export function docHeader(
     aliases: list(data.aliases).filter((alias) => alias !== name),
   };
 }
+
+/** `[NAME](path.md)`, with brackets in the name escaped. */
+export const markdownLink = (name: string, file: string) =>
+  `[${name.replace(/([[\]\\])/g, '\\$1')}](${file.replace(/ /g, '%20')})`;

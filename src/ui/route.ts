@@ -16,8 +16,16 @@ export interface GraphRoute {
 
 export type Route =
   | { view: 'home' }
-  | { view: 'doc'; file: string; anchor: string | null }
-  | { view: 'health'; section: string | null }
+  | {
+      view: 'doc';
+      file: string;
+      anchor: string | null;
+      /** `?view=md`: the Markdown source instead of the rendered page. */
+      source: boolean;
+      /** `&line=N`: a source line to land on and highlight. */
+      line: number | null;
+    }
+  | { view: 'health'; section: string | null; query: string | null }
   | ({ view: 'graph' } & GraphRoute);
 
 const DOC_PREFIX = '#/doc/';
@@ -39,9 +47,21 @@ export const DEFAULT_GRAPH: GraphRoute = {
  * `#/health[#section]`; anything else is the landing view.
  */
 export function parseHash(hash: string): Route {
-  if (hash === HEALTH || hash.startsWith(`${HEALTH}#`)) {
-    const section = safeDecode(hash.slice(HEALTH.length + 1));
-    return { view: 'health', section: section === '' ? null : section };
+  if (
+    hash === HEALTH ||
+    hash.startsWith(`${HEALTH}#`) ||
+    hash.startsWith(`${HEALTH}?`)
+  ) {
+    const rest = hash.slice(HEALTH.length);
+    const cut = rest.indexOf('#');
+    const search = cut === -1 ? rest : rest.slice(0, cut);
+    const section = cut === -1 ? '' : safeDecode(rest.slice(cut + 1));
+    const query = new URLSearchParams(search.replace(/^\?/, '')).get('q');
+    return {
+      view: 'health',
+      section: section === '' ? null : section,
+      query: query === null || query === '' ? null : query,
+    };
   }
   if (
     hash === GRAPH ||
@@ -53,20 +73,56 @@ export function parseHash(hash: string): Route {
   if (!hash.startsWith(DOC_PREFIX)) return { view: 'home' };
   const rest = hash.slice(DOC_PREFIX.length);
   const cut = rest.indexOf('#');
-  const rawFile = cut === -1 ? rest : rest.slice(0, cut);
+  const head = cut === -1 ? rest : rest.slice(0, cut);
   const rawAnchor = cut === -1 ? '' : rest.slice(cut + 1);
-  const file = safeDecode(rawFile);
+  // A `?` in a file name is always encoded, so a bare one starts options
+  const ask = head.indexOf('?');
+  const file = safeDecode(ask === -1 ? head : head.slice(0, ask));
   if (file === '') return { view: 'home' };
+  const query = new URLSearchParams(ask === -1 ? '' : head.slice(ask + 1));
+  const source = query.get('view') === 'md';
+  const lineValue = Number(query.get('line'));
+  const line =
+    source && Number.isInteger(lineValue) && lineValue > 0 ? lineValue : null;
   const anchor = safeDecode(rawAnchor);
-  return { view: 'doc', file, anchor: anchor === '' ? null : anchor };
+  return {
+    view: 'doc',
+    file,
+    anchor: anchor === '' ? null : anchor,
+    source,
+    line,
+  };
 }
 
-export function docHash(file: string, anchor: string | null = null): string {
-  return `${DOC_PREFIX}${encodePath(file)}${anchor === null ? '' : `#${encodeURIComponent(anchor)}`}`;
+export interface DocOptions {
+  source?: boolean;
+  line?: number | null;
 }
 
-export const healthHash = (section: string | null = null) =>
-  section === null ? HEALTH : `${HEALTH}#${encodeURIComponent(section)}`;
+export function docHash(
+  file: string,
+  anchor: string | null = null,
+  options: DocOptions = {},
+): string {
+  const query = new URLSearchParams();
+  if (options.source) {
+    query.set('view', 'md');
+    if (options.line != null) query.set('line', String(options.line));
+  }
+  const search = query.toString();
+  return `${DOC_PREFIX}${encodePath(file)}${search === '' ? '' : `?${search}`}${anchor === null ? '' : `#${encodeURIComponent(anchor)}`}`;
+}
+
+export function healthHash(
+  section: string | null = null,
+  query: string | null = null,
+): string {
+  const search =
+    query === null || query === ''
+      ? ''
+      : `?${new URLSearchParams({ q: query }).toString()}`;
+  return `${HEALTH}${search}${section === null ? '' : `#${encodeURIComponent(section)}`}`;
+}
 
 /** `rest` is what follows `#/graph`: `[/<id>][?query]`. */
 function parseGraph(rest: string): GraphRoute {
