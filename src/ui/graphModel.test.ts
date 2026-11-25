@@ -250,4 +250,14 @@ describe('findNodes', () => {
     expect(findNodes(nodes, 'master', 1).map((n) => n.id)).toEqual(['d/1']);
     expect(findNodes(nodes, '  ')).toEqual([]);
   });
+
+  it('treats spaces, hyphens and underscores as the same', () => {
+    const named = [node('d/soa', 'RCD_HIERARQUIA_SOA'), node('d/x', 'OTHER')];
+    expect(findNodes(named, 'hierarquia soa').map((n) => n.id)).toEqual([
+      'd/soa',
+    ]);
+    expect(findNodes(named, 'rcd-hierarquia').map((n) => n.id)).toEqual([
+      'd/soa',
+    ]);
+  });
 });

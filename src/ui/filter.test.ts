@@ -13,6 +13,14 @@ describe('matchesFilter', () => {
     expect(matchesFilter('nielsen', ['RCD_SKU_NIQ'])).toBe(false);
   });
 
+  it('treats spaces, hyphens and underscores as the same', () => {
+    expect(matchesFilter('hierarquia soa', ['RCD_HIERARQUIA_SOA'])).toBe(true);
+    expect(
+      matchesFilter('master_distribution', ['RCD_MASTER-DISTRIBUTION']),
+    ).toBe(true);
+    expect(matchesFilter('de-para rd', ['DE PARA RD'])).toBe(true);
+  });
+
   it('lets everything through for an empty query', () => {
     expect(matchesFilter('', [])).toBe(true);
     expect(matchesFilter('   ', ['x'])).toBe(true);

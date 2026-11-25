@@ -21,6 +21,8 @@
   --trace-up: #0969da;
   --trace-down: #d4590b;
   --trace-between: #8250df;
+  --band-bg: rgba(129, 139, 152, 0.06);
+  --band-shared-bg: rgba(154, 103, 0, 0.06);
   color-scheme: light dark;
   font-family:
     system-ui,
@@ -55,6 +57,8 @@
     --trace-up: #4493f8;
     --trace-down: #f0883e;
     --trace-between: #a371f7;
+    --band-bg: rgba(110, 118, 129, 0.1);
+    --band-shared-bg: rgba(210, 153, 34, 0.08);
   }
 }
 
@@ -639,6 +643,7 @@ main {
     Roboto,
     sans-serif;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .graph-node .react-flow__handle {
@@ -723,11 +728,143 @@ main {
   fill: var(--trace-between);
 }
 
-.graph-unlinked-caption {
+.graph-edge.cross {
+  stroke-opacity: 0.7;
+}
+
+/* Bands: framed groups drawn under the edges and nodes */
+
+.graph-canvas .react-flow__viewport-portal {
+  z-index: -1;
+}
+
+.graph-band {
   position: absolute;
+  top: 0;
+  left: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--band-bg);
+  pointer-events: none;
+}
+
+.graph-band.band-lookups,
+.graph-band.band-feed {
+  border-style: dashed;
+  background: var(--band-shared-bg);
+}
+
+.graph-band.band-unlinked {
+  background: none;
+}
+
+.graph-band-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.graph-band-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.graph-band-count {
+  font-weight: 400;
+}
+
+/* Tag on a node that reads shared lookups */
+
+.graph-tag {
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--layer-dimension);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--layer-dimension);
+  font: inherit;
+  line-height: 12px;
+  cursor: pointer;
+}
+
+.graph-tag.is-lit,
+.graph-tag[aria-expanded='true'] {
+  background: var(--layer-dimension);
+  color: var(--bg);
+}
+
+.graph-tag.swatch-tag {
+  margin: 0;
+  font-size: 10px;
+  cursor: default;
+}
+
+.graph-tag-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.graph-tag-popover p {
+  margin: 0 0 2px;
+  color: var(--muted);
+}
+
+.graph-tag-popover ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.graph-note {
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--accent-bg);
+}
+
+.graph-bands {
+  margin-top: 12px;
+}
+
+.graph-bands h3 {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+}
+
+.graph-bands ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.graph-bands li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 3px 0;
+}
+
+.graph-bands li .count {
+  flex-shrink: 0;
   white-space: nowrap;
 }
 
@@ -813,6 +950,13 @@ main {
 
 .swatch-line.redundant {
   border-top: 2px dashed var(--edge);
+}
+
+.swatch-line.cross {
+  height: 8px;
+  border-top: none;
+  border-bottom: 2px solid var(--edge);
+  border-radius: 0 0 0 16px;
 }
 
 .graph-body {

@@ -50,7 +50,7 @@ describe('graph routes', () => {
   it('reads a focused node and options', () => {
     expect(
       parseHash(
-        '#/graph/docs/datasets/x.md?node=a&to=b&depth=2&external=hide&links=all',
+        '#/graph/docs/datasets/x.md?node=a&to=b&depth=2&external=hide&links=all&lookups=wires',
       ),
     ).toEqual({
       view: 'graph',
@@ -60,6 +60,7 @@ describe('graph routes', () => {
       depth: 2,
       showExternal: false,
       showRedundant: true,
+      lookupWires: true,
     });
     expect(parseHash('#/graph?depth=7')).toMatchObject({ depth: null });
   });
@@ -87,6 +88,7 @@ describe('graph routes', () => {
     expect(
       graphHash({ focus: 'docs/datasets/x.md', node: 'docs/datasets/x.md' }),
     ).toBe('#/graph/docs/datasets/x.md');
+    expect(graphHash({ lookupWires: true })).toBe('#/graph?lookups=wires');
     expect(graphHash({ focus: 'external:A B' })).toBe(
       '#/graph/external%3AA%20B',
     );

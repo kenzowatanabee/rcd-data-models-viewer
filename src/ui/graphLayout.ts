@@ -97,23 +97,246 @@ export function layoutGraph(input: LayoutInput): Layout {
     const top = linked.size > 0 ? bottom + ROW_GAP : 0;
     unlinkedRow = { x: 0, y: top };
     // Wrap at the graph's width, but never narrower than a few nodes
-    const wrapAt = Math.max(right, 900);
-    let x = 0;
-    let y = top + CAPTION;
-    let rowHeight = 0;
-    for (const node of loose) {
-      if (x > 0 && x + node.width > wrapAt) {
-        x = 0;
-        y += rowHeight + NODE_GAP;
-        rowHeight = 0;
-      }
-      positions.set(node.id, { x, y });
-      x += node.width + NODE_GAP;
-      rowHeight = Math.max(rowHeight, node.height);
+    const wrapped = wrapNodes(loose, Math.max(right, 900));
+    for (const [id, { x, y }] of wrapped.positions) {
+      positions.set(id, { x, y: y + top + CAPTION });
     }
   }
 
   return { positions, routes, unlinkedRow };
+}
+
+/** Places nodes left to right in rows no wider than `wrapAt`. */
+export function wrapNodes(
+  nodes: ({ id: string } & Size)[],
+  wrapAt: number,
+): { positions: Map<string, Point> } & Size {
+  const positions = new Map<string, Point>();
+  let x = 0;
+  let y = 0;
+  let rowHeight = 0;
+  let width = 0;
+  for (const node of nodes) {
+    if (x > 0 && x + node.width > wrapAt) {
+      x = 0;
+      y += rowHeight + NODE_GAP;
+      rowHeight = 0;
+    }
+    positions.set(node.id, { x, y });
+    width = Math.max(width, x + node.width);
+    x += node.width + NODE_GAP;
+    rowHeight = Math.max(rowHeight, node.height);
+  }
+  return { positions, width, height: nodes.length > 0 ? y + rowHeight : 0 };
+}
+
+export interface Rect extends Point, Size {}
+
+export interface BandGroup {
+  id: string;
+  nodes: string[];
+  /** `side` groups stack in a column on the left, `main` ones pack in rows. */
+  column: 'side' | 'main';
+  /** Lay the group out with dagre, or just wrap its nodes in rows. */
+  arrange: 'flow' | 'wrap';
+}
+
+export interface BandsInput extends LayoutInput {
+  /** In display order; each node belongs to one group at most. */
+  groups: BandGroup[];
+}
+
+export interface BandsLayout {
+  positions: Map<string, Point>;
+  routes: Map<string, Point[]>;
+  /** Edges between groups: drawn as a curve through their four points. */
+  curved: Set<string>;
+  /** The frame of each group, title included. */
+  bands: Map<string, Rect>;
+  bounds: Rect;
+}
+
+export const BAND_PAD = 14;
+/** Room at the top of a frame for its title. */
+export const BAND_TITLE = 28;
+const BAND_GAP = 26;
+/** Room between the side column and the rest, for the wires that cross it. */
+const SIDE_GAP = 140;
+/** Small families pack side by side up to this width, or the widest band's. */
+const MIN_ROW = 1400;
+const MIN_SIDE = 360;
+
+/**
+ * Lays each group out on its own, frames it, and arranges the frames:
+ * `side` groups in a column on the left, `main` groups in rows to its
+ * right, a large group taking a row and small ones sharing one. Edges
+ * inside a `flow` group follow dagre's route; any other edge becomes a
+ * curve from its source's right side to its target's left, so it never
+ * moves a node.
+ */
+export function layoutBands(input: BandsInput): BandsLayout {
+  const sized = new Map(input.nodes.map((node) => [node.id, node]));
+  const groupOf = new Map<string, string>();
+  for (const group of input.groups) {
+    for (const id of group.nodes) if (sized.has(id)) groupOf.set(id, group.id);
+  }
+  const edges = input.edges.filter(
+    (edge) => sized.has(edge.from) && sized.has(edge.to),
+  );
+  const inside = (group: BandGroup) =>
+    group.arrange === 'flow'
+      ? edges.filter(
+          (edge) =>
+            groupOf.get(edge.from) === group.id &&
+            groupOf.get(edge.to) === group.id,
+        )
+      : [];
+
+  interface Local extends Size {
+    positions: Map<string, Point>;
+    routes: Map<string, Point[]>;
+  }
+  const local = new Map<string, Local>();
+  const members = (group: BandGroup) =>
+    group.nodes
+      .map((id) => sized.get(id))
+      .filter((node): node is { id: string } & Size => node !== undefined);
+  const flow = (group: BandGroup): Local | null => {
+    const own = inside(group);
+    if (own.length === 0) return null;
+    const placed = layoutGraph({ nodes: members(group), edges: own });
+    let width = 0;
+    let height = 0;
+    for (const node of members(group)) {
+      const at = placed.positions.get(node.id) ?? { x: 0, y: 0 };
+      width = Math.max(width, at.x + node.width);
+      height = Math.max(height, at.y + node.height);
+    }
+    return {
+      positions: placed.positions,
+      routes: placed.routes,
+      width,
+      height,
+    };
+  };
+  const wrap = (group: BandGroup, wrapAt: number): Local => ({
+    ...wrapNodes(members(group), wrapAt),
+    routes: new Map(),
+  });
+  // Flowing groups first: their widths set how wide the wrapped ones get
+  for (const group of input.groups) {
+    const placed = flow(group);
+    if (placed !== null) local.set(group.id, placed);
+  }
+  const frameWidth = (id: string) => (local.get(id)?.width ?? 0) + 2 * BAND_PAD;
+  const widest = (column: BandGroup['column'], least: number) =>
+    Math.max(
+      least,
+      ...input.groups
+        .filter((g) => g.column === column && local.has(g.id))
+        .map((g) => frameWidth(g.id)),
+    );
+  const sideWidth = widest('side', MIN_SIDE);
+  const rowWidth = widest('main', MIN_ROW);
+  for (const group of input.groups) {
+    if (local.has(group.id)) continue;
+    const limit = group.column === 'side' ? sideWidth : rowWidth;
+    local.set(group.id, wrap(group, limit - 2 * BAND_PAD));
+  }
+
+  const bands = new Map<string, Rect>();
+  const frame = (group: BandGroup): Size => {
+    const placed = local.get(group.id) as Local;
+    return {
+      width: placed.width + 2 * BAND_PAD,
+      height: placed.height + BAND_TITLE + 2 * BAND_PAD,
+    };
+  };
+  const shown = input.groups.filter((g) => members(g).length > 0);
+
+  let y = 0;
+  const side = shown.filter((g) => g.column === 'side');
+  for (const group of side) {
+    const size = frame(group);
+    bands.set(group.id, { x: 0, y, ...size, width: sideWidth });
+    y += size.height + BAND_GAP;
+  }
+  const left = side.length > 0 ? sideWidth + SIDE_GAP : 0;
+  let x = left;
+  y = 0;
+  let rowHeight = 0;
+  for (const group of shown.filter((g) => g.column === 'main')) {
+    const size = frame(group);
+    if (x > left && x + size.width > left + rowWidth) {
+      x = left;
+      y += rowHeight + BAND_GAP;
+      rowHeight = 0;
+    }
+    bands.set(group.id, { x, y, ...size });
+    x += size.width + BAND_GAP;
+    rowHeight = Math.max(rowHeight, size.height);
+  }
+
+  const positions = new Map<string, Point>();
+  const routes = new Map<string, Point[]>();
+  for (const group of shown) {
+    const band = bands.get(group.id) as Rect;
+    const placed = local.get(group.id) as Local;
+    const dx = band.x + BAND_PAD;
+    const dy = band.y + BAND_TITLE + BAND_PAD;
+    for (const [id, at] of placed.positions) {
+      positions.set(id, { x: at.x + dx, y: at.y + dy });
+    }
+    for (const [key, points] of placed.routes) {
+      routes.set(
+        key,
+        points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+      );
+    }
+  }
+
+  const curved = new Set<string>();
+  for (const edge of edges) {
+    if (routes.has(edge.key)) continue;
+    const from = positions.get(edge.from);
+    const to = positions.get(edge.to);
+    if (from === undefined || to === undefined) continue;
+    const a = sized.get(edge.from) as Size;
+    const b = sized.get(edge.to) as Size;
+    const start = { x: from.x + a.width, y: from.y + a.height / 2 };
+    const end = { x: to.x, y: to.y + b.height / 2 };
+    const bend = Math.max(60, Math.abs(end.x - start.x) / 2);
+    routes.set(edge.key, [
+      start,
+      { x: start.x + bend, y: start.y },
+      { x: end.x - bend, y: end.y },
+      end,
+    ]);
+    curved.add(edge.key);
+  }
+
+  let right = 0;
+  let bottom = 0;
+  for (const band of bands.values()) {
+    right = Math.max(right, band.x + band.width);
+    bottom = Math.max(bottom, band.y + band.height);
+  }
+  return {
+    positions,
+    routes,
+    curved,
+    bands,
+    bounds: { x: 0, y: 0, width: right, height: bottom },
+  };
+}
+
+/** A cubic curve through a four-point route: start, two controls, end. */
+export function curvePath(points: Point[]): string {
+  const [a, b, c, d] = points;
+  if (a === undefined || b === undefined || c === undefined || d === undefined)
+    return routePath(points);
+  const at = (p: Point) => `${round(p.x)},${round(p.y)}`;
+  return `M${at(a)} C${at(b)} ${at(c)} ${at(d)}`;
 }
 
 /**

@@ -54,6 +54,9 @@ interface Props {
   graph: Graph;
   shown: VisibleGraph;
   node: GraphNode;
+  /** The shared lookups, and those this node reads. */
+  lookups: ReadonlySet<string>;
+  reads: string[];
   lineage: Trace;
   path: { to: GraphNode; between: Between } | null;
   focused: boolean;
@@ -67,6 +70,8 @@ export function GraphDetails({
   graph,
   shown,
   node,
+  lookups,
+  reads,
   lineage,
   path,
   focused,
@@ -82,6 +87,11 @@ export function GraphDetails({
   );
   const ends = [...lineage.downstream.keys()].filter(
     (id) => !hasOutgoing.has(id),
+  );
+  const readers = new Set(
+    shown.edges
+      .filter((e) => e.from === node.id && byId.get(e.to)?.kind === 'pipeline')
+      .map((e) => e.to),
   );
   const gaps = node.file === null ? null : gapsFor(graph, node.id);
   const gapCount =
@@ -133,6 +143,22 @@ export function GraphDetails({
           {gapCount} lineage {gapCount === 1 ? 'gap' : 'gaps'}, listed on the
           doc page.
         </p>
+      )}
+      {lookups.has(node.id) && (
+        <p className="graph-note">
+          Shared lookup, read by {readers.size}{' '}
+          {readers.size === 1 ? 'pipeline' : 'pipelines'}. Its links are drawn
+          while it is selected; otherwise its readers carry a tag.
+        </p>
+      )}
+      {reads.length > 0 && (
+        <section>
+          <h3>
+            Shared lookups it reads{' '}
+            <span className="count">{reads.length}</span>
+          </h3>
+          <NodeList ids={reads} byId={byId} onSelect={onSelect} />
+        </section>
       )}
       {path !== null && (
         <section>
