@@ -28,7 +28,7 @@ function metaOf(node: GraphNode): string {
 }
 
 /** Lets long identifiers wrap after their underscores, not mid-word. */
-function Breakable({ name }: { name: string }) {
+export function Breakable({ name }: { name: string }) {
   const parts = name.split(/(?<=_)/);
   return (
     <>

@@ -7,6 +7,7 @@ import {
   findNodes,
   isDirectLink,
   lineageOf,
+  pathOrder,
   redundantLinks,
   trace,
   unlinked,
@@ -224,6 +225,37 @@ describe('between', () => {
       keys(forward.nodes),
     );
     expect(between(visible, 'd/raw', 'd/lookup').nodes.size).toBe(0);
+  });
+});
+
+describe('pathOrder', () => {
+  it('lists a path in the order the data flows, whichever end was picked', () => {
+    const visible = visibleGraph(graph, {
+      showExternal: true,
+      showRedundant: true,
+    });
+    const ids = visible.nodes.map((n) => n.id);
+    const path = between(visible, 'd/out', 'd/raw');
+    expect(pathOrder(path, visible.edges, ids)).toEqual([
+      'd/raw',
+      'p/flow',
+      'd/out',
+    ]);
+    expect(pathOrder(between(visible, 'd/raw', 'd/lookup'), [], ids)).toEqual(
+      [],
+    );
+  });
+
+  it('still lists every node of a cycle', () => {
+    const path = {
+      nodes: new Set(['a', 'b']),
+      edges: new Set(['a\nb', 'b\na']),
+    };
+    const links = [
+      { from: 'a', to: 'b' },
+      { from: 'b', to: 'a' },
+    ];
+    expect(pathOrder(path, links, ['b', 'a'])).toEqual(['b', 'a']);
   });
 });
 

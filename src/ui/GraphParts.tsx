@@ -28,7 +28,14 @@ export interface LookupTag {
 }
 
 export type LineageNode = Node<
-  { node: GraphNode; lines: string[]; caption: string; tag: LookupTag | null },
+  {
+    node: GraphNode;
+    lines: string[];
+    caption: string;
+    tag: LookupTag | null;
+    /** Name, kind and layer, and what it reads: shown on hover at any zoom. */
+    tooltip: string;
+  },
   'lineage'
 >;
 
@@ -39,6 +46,8 @@ export type RoutedEdge = Edge<
     /** Between two bands, so drawn as a curve over them. */
     curved: boolean;
     lookup: boolean;
+    /** From a shared feed to a reader in another band. */
+    feed: boolean;
   },
   'routed'
 >;
@@ -101,12 +110,9 @@ function TagView({ tag }: { tag: LookupTag }) {
 }
 
 function LineageNodeView({ data }: NodeProps<LineageNode>) {
-  const { node, lines, caption, tag } = data;
+  const { node, lines, caption, tag, tooltip } = data;
   return (
-    <div
-      className={nodeClass(node)}
-      title={node.file ?? 'No doc has this name'}
-    >
+    <div className={nodeClass(node)} title={tooltip}>
       {/* Edges need handles to attach to; they are not meant to be seen */}
       <Handle type="target" position={Position.Left} isConnectable={false} />
       <div className="graph-node-label">
@@ -131,6 +137,7 @@ function RoutedEdgeView({ data }: EdgeProps<RoutedEdge>) {
     data?.redundant && 'redundant',
     data?.curved && 'cross',
     data?.lookup && 'lookup',
+    data?.feed && 'feed',
   ]
     .filter(Boolean)
     .join(' ');
@@ -151,18 +158,27 @@ export const edgeTypes = { routed: RoutedEdgeView };
 export interface BandFrame extends Rect {
   id: string;
   title: string;
+  detail: string | null;
   kind: string;
   count: number;
+  /** Member names, for the hover text. */
+  members: string;
 }
 
 /** The frames and titles of the bands, drawn under the nodes and edges. */
-export function BandFrames({ frames }: { frames: BandFrame[] }) {
+export function BandFrames({
+  frames,
+  hot,
+}: {
+  frames: BandFrame[];
+  hot: string | null;
+}) {
   return (
     <>
       {frames.map((frame) => (
         <div
           key={frame.id}
-          className={`graph-band band-${frame.kind}`}
+          className={`graph-band band-${frame.kind}${hot === frame.id ? ' is-hot' : ''}`}
           data-band={frame.id}
           style={{
             transform: `translate(${frame.x}px, ${frame.y}px)`,
@@ -171,7 +187,12 @@ export function BandFrames({ frames }: { frames: BandFrame[] }) {
           }}
         >
           <div className="graph-band-title" style={{ height: BAND_TITLE }}>
-            <span className="graph-band-name">{frame.title}</span>
+            <span className="graph-band-name" title={frame.members}>
+              {frame.title}
+            </span>
+            {frame.detail !== null && (
+              <span className="graph-band-detail">{frame.detail}</span>
+            )}
             <span className="graph-band-count">{frame.count}</span>
           </div>
         </div>
@@ -180,77 +201,48 @@ export function BandFrames({ frames }: { frames: BandFrame[] }) {
   );
 }
 
-/** With nothing selected: the bands, each one a click away. */
-export function BandList({
-  frames,
-  onPick,
-}: {
-  frames: BandFrame[];
-  onPick: (frame: BandFrame) => void;
-}) {
-  return (
-    <section className="panel-section graph-bands">
-      <h3>
-        Bands <span className="count">{frames.length}</span>
-      </h3>
-      <ul>
-        {frames.map((frame) => (
-          <li key={frame.id}>
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => onPick(frame)}
-            >
-              {frame.title}
-            </button>{' '}
-            <span className="count">{frame.count}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 export function Legend() {
   return (
-    <section className="panel-section graph-legend">
-      <h3>Legend</h3>
-      <ul>
-        {['source', 'dimension', 'intermediate', 'output'].map((layer) => (
-          <li key={layer}>
-            <span className={`swatch graph-node kind-dataset layer-${layer}`} />
-            dataset, {layer}
-          </li>
-        ))}
-        <li>
-          <span className="swatch graph-node kind-pipeline" />
-          pipeline
+    <ul className="graph-legend">
+      {['source', 'dimension', 'intermediate', 'output'].map((layer) => (
+        <li key={layer}>
+          <span className={`swatch graph-node kind-dataset layer-${layer}`} />
+          dataset, {layer}
         </li>
-        <li>
-          <span className="swatch graph-node kind-external" />
-          undocumented name
-        </li>
-        <li>
-          <span className="swatch-line up" />
-          upstream of the selection
-        </li>
-        <li>
-          <span className="swatch-line down" />
-          downstream of the selection
-        </li>
-        <li>
-          <span className="swatch-line redundant" />
-          direct link a pipeline also gives
-        </li>
-        <li>
-          <span className="swatch-line cross" />
-          link between two bands
-        </li>
-        <li>
-          <span className="graph-tag swatch-tag">2 lookups</span>
-          shared lookups a node reads
-        </li>
-      </ul>
-    </section>
+      ))}
+      <li>
+        <span className="swatch graph-node kind-pipeline" />
+        pipeline
+      </li>
+      <li>
+        <span className="swatch graph-node kind-external" />
+        undocumented name
+      </li>
+      <li>
+        <span className="swatch-line up" />
+        upstream of the selection
+      </li>
+      <li>
+        <span className="swatch-line down" />
+        downstream of the selection
+      </li>
+      <li>
+        <span className="swatch-line redundant" />
+        direct link a pipeline also gives
+      </li>
+      <li>
+        <span className="swatch-line cross" />
+        link between two bands
+      </li>
+      <li>
+        <span className="swatch-line cross feed" />
+        from a shared feed: faint until it, a reader or a band it feeds is
+        selected or hovered
+      </li>
+      <li>
+        <span className="graph-tag swatch-tag">2 lookups</span>
+        shared lookups a node reads
+      </li>
+    </ul>
   );
 }

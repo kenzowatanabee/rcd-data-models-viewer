@@ -1,7 +1,6 @@
 import '@xyflow/react/dist/style.css';
 
 import {
-  Controls,
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
@@ -10,12 +9,29 @@ import {
   useReactFlow,
   useViewportStore,
 } from '@xyflow/react';
-import { ChevronDown } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
 
 import type { GraphResponse } from '../server/api';
-import { GraphDetails } from './GraphDetails';
-import { GraphFind } from './GraphFind';
+import {
+  MINIMAP_MIN_WIDTH,
+  clampPanelWidth,
+  fitPadding,
+  isInView,
+  isStep,
+  parsePanelWidth,
+  stepNode,
+  withPending,
+  type Pending,
+} from './graphChrome';
+import { CanvasControls } from './GraphControls';
+import { GraphOverview, NodeDetails, PathDetails } from './GraphDetails';
 import {
   arrange,
   lookupsRead,
@@ -29,25 +45,23 @@ import {
   lineageOf,
   trace,
   visibleGraph,
-  type Depth,
   type VisibleGraph,
 } from './graphModel';
-import { CAPTION_FONT, LABEL_FONT, placeGraph } from './graphNodes';
+import { CAPTION_FONT, LABEL_FONT, captionOf, placeGraph } from './graphNodes';
 import {
   BandFrames,
-  BandList,
   edgeTypes,
-  Legend,
   miniMapClass,
   nodeTypes,
   type BandFrame,
   type LineageNode,
   type RoutedEdge,
 } from './GraphParts';
+import { GraphToolbar } from './GraphToolbar';
 import { graphHash, type GraphRoute } from './route';
-import { motionDuration } from './settings';
+import { STORAGE_KEYS, motionDuration, parseFlag } from './settings';
 import { StateView } from './State';
-import { useReducedMotion } from './storage';
+import { readSetting, useReducedMotion, writeSetting } from './storage';
 
 /**
  * Selection changes replace the history entry so back does not step
@@ -67,9 +81,6 @@ function go(route: GraphRoute, replace = false): void {
 
 const EMPTY: VisibleGraph = { nodes: [], edges: [] };
 const NO_IDS: ReadonlySet<string> = new Set();
-
-/** Room left around what is fitted to the window, in screen pixels. */
-const FIT_PADDING = '36px';
 
 interface Props {
   data: GraphResponse | null;
@@ -103,6 +114,55 @@ function useNodeFontsReady(): boolean {
   return ready;
 }
 
+function useWindowWidth(): number {
+  const [width, setWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return width;
+}
+
+/** The side panel's width and whether it is hidden, kept between sessions. */
+function usePanel() {
+  const windowWidth = useWindowWidth();
+  const [stored, setStored] = useState(() =>
+    parsePanelWidth(readSetting(STORAGE_KEYS.graphPanelWidth)),
+  );
+  const [collapsed, setCollapsedState] = useState(() =>
+    parseFlag(readSetting(STORAGE_KEYS.graphPanelCollapsed)),
+  );
+  return {
+    width: clampPanelWidth(stored, windowWidth),
+    setWidth: (value: number) => {
+      const next = clampPanelWidth(value, window.innerWidth);
+      setStored(next);
+      writeSetting(STORAGE_KEYS.graphPanelWidth, String(next));
+    },
+    collapsed,
+    setCollapsed: (value: boolean) => {
+      setCollapsedState(value);
+      writeSetting(STORAGE_KEYS.graphPanelCollapsed, String(value));
+    },
+  };
+}
+
+/** The last part of a node id, to name a node the graph does not have. */
+const idName = (id: string) =>
+  id
+    .replace(/^external:/, '')
+    .replace(/^.*\//, '')
+    .replace(/\.md$/, '');
+
+const plural = (n: number, one: string, many = `${one}s`) =>
+  `${n} ${n === 1 ? one : many}`;
+
+interface Notice {
+  text: string;
+  actions: { label: string; run: () => void }[];
+}
+
 export function GraphPage(props: Props) {
   useEffect(() => {
     document.title = 'Lineage graph · RCD data models';
@@ -114,11 +174,21 @@ export function GraphPage(props: Props) {
   );
 }
 
-function GraphView({ data, route }: Props) {
+function GraphView({ data, route: address }: Props) {
+  // A control's change shows at once, before the address catches up
+  const addressHash = graphHash(address);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const route = useMemo(
+    () => withPending(address, addressHash, pending),
+    [address, addressHash, pending],
+  );
   const { focus, depth, showExternal, showRedundant, lookupWires } = route;
+
   const fontsReady = useNodeFontsReady();
   const graph = fontsReady ? (data?.graph ?? null) : null;
   const reducedMotion = useReducedMotion();
+  const panel = usePanel();
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(
     () =>
@@ -168,25 +238,64 @@ function GraphView({ data, route }: Props) {
     () => placeGraph(shown, arrangement.groups, tags),
     [shown, arrangement, tags],
   );
+  const byId = useMemo(
+    () => new Map(shown.nodes.map((n) => [n.id, n])),
+    [shown],
+  );
+  const boxes = useMemo(() => {
+    const result = new Map<string, Rect>();
+    for (const [id, at] of placed.layout.positions) {
+      const box = placed.boxes.get(id);
+      if (box !== undefined) result.set(id, { ...at, ...box });
+    }
+    return result;
+  }, [placed]);
+  const bandOf = useMemo(
+    () =>
+      new Map(
+        arrangement.bands.flatMap((band) =>
+          band.nodes.map((id) => [id, band.id] as const),
+        ),
+      ),
+    [arrangement],
+  );
   const frames = useMemo(
     (): BandFrame[] =>
       arrangement.bands.flatMap((band) => {
         const rect = placed.layout.bands.get(band.id);
-        return rect === undefined
-          ? []
-          : [
-              {
-                ...rect,
-                id: band.id,
-                title: band.title,
-                kind: band.kind,
-                count: band.nodes.length,
-              },
-            ];
+        if (rect === undefined) return [];
+        const names = band.nodes
+          .map((id) => byId.get(id)?.name ?? id)
+          .sort((a, b) => a.localeCompare(b));
+        return [
+          {
+            ...rect,
+            id: band.id,
+            title: band.title,
+            detail: band.detail,
+            kind: band.kind,
+            count: band.nodes.length,
+            members: `${band.title}${band.detail === null ? '' : ` (${band.detail})`}\n${names.join('\n')}`,
+          },
+        ];
       }),
-    [arrangement, placed],
+    [arrangement, placed, byId],
   );
+  // The feeds each reader reads, for its hover text
+  const feedsRead = useMemo(() => {
+    const result = new Map<string, string[]>();
+    for (const edge of shown.edges) {
+      if (!feeds.has(edge.from)) continue;
+      const list = result.get(edge.to) ?? [];
+      list.push(byId.get(edge.from)?.name ?? edge.from);
+      result.set(edge.to, list);
+    }
+    return result;
+  }, [shown, feeds, byId]);
+
   const [openTag, setOpenTag] = useState<string | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [hoveredBand, setHoveredBand] = useState<string | null>(null);
 
   const selected = shown.nodes.find((n) => n.id === route.node) ?? null;
   const other = shown.nodes.find((n) => n.id === route.to) ?? null;
@@ -208,9 +317,22 @@ function GraphView({ data, route }: Props) {
     return lineage.upstreamEdges.has(key) || lineage.downstreamEdges.has(key);
   };
 
+  // Keyboard: one node is in the tab order; arrow keys move it
+  const [cursor, setCursor] = useState<string | null>(null);
+  const firstNode = useMemo(
+    () =>
+      [...boxes].sort(([, a], [, b]) => a.y - b.y || a.x - b.x)[0]?.[0] ?? null,
+    [boxes],
+  );
+  const tabStop =
+    cursor !== null && boxes.has(cursor)
+      ? cursor
+      : selected !== null
+        ? selected.id
+        : firstNode;
+
   // Rebuilt each render: the tags carry handlers that close over the route
   const nodes = ((): LineageNode[] => {
-    const byId = new Map(shown.nodes.map((n) => [n.id, n]));
     const tagOf = (id: string): LineageNode['data']['tag'] => {
       const list = reads.get(id);
       const text = tags.get(id);
@@ -246,6 +368,17 @@ function GraphView({ data, route }: Props) {
     return shown.nodes.map((node) => {
       const box = placed.boxes.get(node.id);
       const position = placed.layout.positions.get(node.id) ?? { x: 0, y: 0 };
+      const fed = feedsRead.get(node.id);
+      const tooltip = [
+        node.name,
+        node.kind === 'dataset'
+          ? `dataset · ${captionOf(node)}`
+          : captionOf(node),
+        node.file === null ? 'No doc has this name' : node.file,
+        fed === undefined ? null : `Reads the shared feed ${fed.join(', ')}`,
+      ]
+        .filter((line) => line !== null)
+        .join('\n');
       return {
         id: node.id,
         type: 'lineage',
@@ -257,11 +390,13 @@ function GraphView({ data, route }: Props) {
           lines: box?.lines ?? [node.name],
           caption: box?.caption ?? '',
           tag: tagOf(node.id),
+          tooltip,
         },
         // An open tag's list must sit above the nodes around it
         zIndex: openTag === node.id ? 10 : 0,
         className: state(node.id),
-        ariaLabel: node.name,
+        ariaLabel: `${node.name}, ${captionOf(node)}`,
+        focusable: node.id === tabStop,
       };
     });
   })();
@@ -276,6 +411,13 @@ function GraphView({ data, route }: Props) {
       return 'is-dim';
     };
     const lit = (key: string) => !['', 'is-dim'].includes(state(key));
+    // A feed's long curves stay faint unless the feed, a reader, or a band
+    // at either end is pointed at; tracing lights them like any other link
+    const hot = (from: string, to: string) =>
+      hoveredNode === from ||
+      hoveredNode === to ||
+      (hoveredBand !== null &&
+        (bandOf.get(from) === hoveredBand || bandOf.get(to) === hoveredBand));
     // A lookup's links are tags unless asked for; selecting the lookup, or
     // a path through it, draws them. Other selections light the tags.
     const drawn = shown.edges.filter(
@@ -289,7 +431,12 @@ function GraphView({ data, route }: Props) {
       (a, b) => Number(lit(a.key)) - Number(lit(b.key)),
     );
     return ordered.map((edge) => {
-      const className = state(edge.key);
+      const curved = placed.layout.curved.has(edge.key);
+      const feed = curved && feeds.has(edge.from);
+      let className = state(edge.key);
+      if (feed && className === '') {
+        className = hot(edge.from, edge.to) ? 'is-hot' : 'is-quiet';
+      }
       return {
         id: edge.key,
         source: edge.from,
@@ -298,68 +445,189 @@ function GraphView({ data, route }: Props) {
         data: {
           points: placed.layout.routes.get(edge.key) ?? [],
           redundant: edge.redundant,
-          curved: placed.layout.curved.has(edge.key),
+          curved,
           lookup: lookups.has(edge.from),
+          feed,
         },
         className,
       };
     });
-  }, [shown, placed, lineage, path, lookups, lookupWires, selected]);
+  }, [
+    shown,
+    placed,
+    lineage,
+    path,
+    lookups,
+    feeds,
+    lookupWires,
+    selected,
+    hoveredNode,
+    hoveredBand,
+    bandOf,
+  ]);
 
-  const { setViewport, setCenter, getZoom } = useReactFlow();
+  const { setViewport, setCenter, getViewport } = useReactFlow();
   const width = useViewportStore((state) => state.width);
   const height = useViewportStore((state) => state.height);
-  // Fits a rectangle of the layout, frames included, with room around it
+  const minimap = width >= MINIMAP_MIN_WIDTH;
+  // True while the view is the fitted whole, so a resize refits it
+  const fitted = useRef(false);
+  // Fits a rectangle of the layout, frames included, clear of the controls
   const fitRect = (rect: Rect, maxZoom: number, duration: number) => {
     if (width === 0 || height === 0 || rect.width === 0) return;
     void setViewport(
-      getViewportForBounds(rect, width, height, 0.05, maxZoom, FIT_PADDING),
+      getViewportForBounds(
+        rect,
+        width,
+        height,
+        0.05,
+        maxZoom,
+        fitPadding(minimap),
+      ),
       { duration: motionDuration(duration, reducedMotion) },
     );
   };
   const bounds = placed.layout.bounds;
+  const fitAll = (duration: number) => {
+    fitRect(bounds, 1.2, duration);
+    fitted.current = true;
+  };
   const ready = width > 0 && height > 0 && nodes.length > 0;
   const viewKey = `${focus}|${depth}|${showExternal}|${showRedundant}|${ready}`;
   useEffect(() => {
-    const frame = requestAnimationFrame(() => fitRect(bounds, 1.2, 0));
+    const frame = requestAnimationFrame(() => fitAll(0));
     return () => cancelAnimationFrame(frame);
     // Refit when the view changes, not on every new bounds object
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewKey]);
 
-  // Set by find; the view centres once the node is laid out
-  const [centreOn, setCentreOn] = useState<string | null>(null);
+  // The panel or window changed size: refit a fitted view, otherwise keep
+  // what was in the middle in the middle
+  const lastSize = useRef<{ width: number; height: number } | null>(null);
   useEffect(() => {
-    if (centreOn === null) return;
-    const position = placed.layout.positions.get(centreOn);
-    const box = placed.boxes.get(centreOn);
-    if (position === undefined || box === undefined) return;
+    const before = lastSize.current;
+    lastSize.current = { width, height };
+    if (before === null || before.width === 0 || width === 0) return;
+    if (before.width === width && before.height === height) return;
+    if (fitted.current) {
+      fitAll(0);
+      return;
+    }
+    const view = getViewport();
+    void setViewport({
+      x: view.x + (width - before.width) / 2,
+      y: view.y + (height - before.height) / 2,
+      zoom: view.zoom,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [width, height]);
+
+  // Centring: find and the panel lists always centre (closer for find);
+  // other selections (the address, a lookup tag) only when off screen
+  const [centreOn, setCentreOn] = useState<{
+    id: string;
+    zoom: number;
+  } | null>(null);
+  const centre = (id: string, minZoom: number) => {
+    const box = boxes.get(id);
+    if (box === undefined) return false;
+    const zoom = Math.max(getViewport().zoom, minZoom);
+    fitted.current = false;
+    void setCenter(box.x + box.width / 2, box.y + box.height / 2, {
+      zoom,
+      duration: motionDuration(300, reducedMotion),
+    });
+    return true;
+  };
+  useEffect(() => {
+    if (centreOn === null || !ready) return;
     const frame = requestAnimationFrame(() => {
-      void setCenter(position.x + box.width / 2, position.y + box.height / 2, {
-        zoom: Math.max(getZoom(), 1),
-        duration: motionDuration(300, reducedMotion),
-      });
-      setCentreOn(null);
+      if (centre(centreOn.id, centreOn.zoom)) setCentreOn(null);
     });
     return () => cancelAnimationFrame(frame);
-  }, [centreOn, placed, setCenter, getZoom, reducedMotion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centreOn, boxes, ready]);
+
+  const seen = useRef<string | null | undefined>(undefined);
+  const quiet = useRef<string | null>(null);
+  const selectedId = selected?.id ?? null;
+  useEffect(() => {
+    if (!ready || seen.current === selectedId) return;
+    const first = seen.current === undefined;
+    seen.current = selectedId;
+    if (selectedId === null) return;
+    // Clicked on the canvas, or centred by find or the panel already
+    if (quiet.current === selectedId) {
+      quiet.current = null;
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      const box = boxes.get(selectedId);
+      if (box === undefined) return;
+      // Opened at a selection in the whole graph: go close enough to read
+      if (first && focus === null) {
+        centre(selectedId, 1);
+        return;
+      }
+      if (!isInView(box, getViewport(), { width, height })) {
+        centre(selectedId, 0);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, ready]);
+
+  // Moves keyboard focus to the node the arrow keys picked
+  useEffect(() => {
+    if (cursor === null) return;
+    const frame = requestAnimationFrame(() => {
+      canvasRef.current
+        ?.querySelector<HTMLElement>(
+          `.react-flow__node[data-id="${CSS.escape(cursor)}"]`,
+        )
+        ?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [cursor]);
 
   function select(id: string | null, to: string | null = null) {
     setOpenTag(null);
     go({ ...route, node: id ?? focus, to }, true);
   }
 
+  const setView = (change: Partial<GraphRoute>) => {
+    setPending({ base: addressHash, change });
+    go({ ...route, ...change });
+  };
+
+  // Esc steps back: the open tag, then the second node, then the selection
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target?.tagName ?? '')) {
+        return;
+      }
+      if (openTag !== null) setOpenTag(null);
+      else if (route.to !== null) select(route.node, null);
+      else if (route.node !== null && route.node !== focus) select(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   const find = (id: string) => {
     const node = graph?.nodes.find((n) => n.id === id);
     if (node === undefined) return;
-    setCentreOn(id);
+    quiet.current = id;
+    setCentreOn({ id, zoom: 1 });
+    setCursor(id);
     if (shown.nodes.some((n) => n.id === id)) {
       select(id);
       return;
     }
     // Not in this view: show the whole graph, with undocumented nodes if needed
-    go({
-      ...route,
+    setView({
       focus: null,
       node: id,
       to: null,
@@ -367,228 +635,354 @@ function GraphView({ data, route }: Props) {
     });
   };
 
-  const setView = (change: Partial<GraphRoute>) => go({ ...route, ...change });
+  const pickFromPanel = (id: string) => {
+    quiet.current = id;
+    setCentreOn({ id, zoom: 0.6 });
+    setCursor(id);
+    select(id);
+  };
 
-  const tagged = shown.edges.filter((e) => lookups.has(e.from)).length;
-  const counts =
-    lookupWires || tagged === 0
-      ? `${shown.nodes.length} nodes · ${shown.edges.length} links`
-      : `${shown.nodes.length} nodes · ${shown.edges.length - tagged} links + ${tagged} as lookup tags`;
+  const onCanvasKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    const element = target.closest<HTMLElement>('.react-flow__node');
+    const id = element?.dataset.id;
+    if (id === undefined || target !== element) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setCursor(id);
+      if (event.shiftKey && selected !== null && id !== selected.id) {
+        select(selected.id, id);
+      } else {
+        quiet.current = id;
+        select(id);
+      }
+    } else if (isStep(event.key)) {
+      const next = stepNode(id, event.key, shown.edges, boxes);
+      event.preventDefault();
+      if (next !== null) setCursor(next);
+    }
+  };
+
+  const onResizeStart = (event: PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const handle = event.currentTarget;
+    handle.setPointerCapture(event.pointerId);
+    handle.classList.add('is-dragging');
+    document.body.classList.add('is-resizing');
+    const startX = event.clientX;
+    const startWidth = panel.width;
+    const move = (e: globalThis.PointerEvent) =>
+      panel.setWidth(startWidth - (e.clientX - startX));
+    const end = () => {
+      handle.classList.remove('is-dragging');
+      document.body.classList.remove('is-resizing');
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  };
+
+  const onResizeKey = (event: KeyboardEvent) => {
+    const step = event.shiftKey ? 48 : 16;
+    const delta =
+      event.key === 'ArrowLeft' ? step : event.key === 'ArrowRight' ? -step : 0;
+    if (delta === 0) return;
+    event.preventDefault();
+    panel.setWidth(panel.width + delta);
+  };
+
+  const tagged = lookupWires
+    ? 0
+    : shown.edges.filter((e) => lookups.has(e.from)).length;
+  const hiddenExternal =
+    graph === null || showExternal
+      ? 0
+      : graph.nodes.filter((n) => n.kind === 'external').length;
+  const kindCount = (kind: string) =>
+    shown.nodes.filter((n) => n.kind === kind).length;
+  const summary = `${plural(shown.nodes.length, 'node')} in ${plural(frames.length, 'band')}: ${plural(kindCount('dataset'), 'dataset')}, ${plural(kindCount('pipeline'), 'pipeline')}${
+    kindCount('external') > 0 ? `, ${kindCount('external')} undocumented` : ''
+  }. ${plural(shown.edges.length - tagged, 'link')} drawn${
+    tagged > 0 ? `, ${tagged} more as lookup tags` : ''
+  }.`;
+
+  // What to say when the address names something this view cannot show
+  const notice = ((): Notice | null => {
+    if (graph === null || (focus !== null && focusNode === null)) return null;
+    const missing = (id: string, second: boolean): Notice => {
+      const known = graph.nodes.find((n) => n.id === id);
+      const name = `“${known?.name ?? idName(id)}”`;
+      const clear = {
+        label: second ? 'Clear the second node' : 'Clear the selection',
+        run: () => (second ? select(route.node) : select(null)),
+      };
+      if (known === undefined) {
+        return {
+          text: `There is no node ${name} in the graph; its doc may have been renamed or removed.`,
+          actions: [clear],
+        };
+      }
+      if (known.kind === 'external' && !showExternal) {
+        return {
+          text: `${name} is an undocumented name, and those are hidden.`,
+          actions: [
+            {
+              label: 'Show undocumented names',
+              run: () => setView({ showExternal: true }),
+            },
+            clear,
+          ],
+        };
+      }
+      return {
+        text: `${name} is not in this lineage.`,
+        actions: [
+          {
+            label: 'Show the whole graph',
+            run: () => setView({ focus: null }),
+          },
+          clear,
+        ],
+      };
+    };
+    if (route.node !== null && selected === null)
+      return missing(route.node, false);
+    if (route.to !== null && other === null) return missing(route.to, true);
+    if (focusNode !== null && shown.nodes.length === 1) {
+      return {
+        text: `${focusNode.name} has no links in this view: nothing feeds it and nothing reads it.`,
+        actions: [
+          {
+            label: 'Back to the whole graph',
+            run: () => setView({ focus: null }),
+          },
+        ],
+      };
+    }
+    return null;
+  })();
+
+  let canvas;
+  if (graph === null) {
+    canvas = <StateView kind="loading" centred title="Loading the graph…" />;
+  } else if (focus !== null && focusNode === null) {
+    const known = graph.nodes.find((n) => n.id === focus);
+    const hidden = known?.kind === 'external' && !showExternal;
+    canvas = (
+      <StateView
+        kind="empty"
+        centred
+        title={
+          hidden
+            ? `${known.name} is an undocumented name, and those are hidden`
+            : known === undefined
+              ? 'This node is not in the graph'
+              : `${known.name} is not in this view`
+        }
+        detail={focus}
+      >
+        <p>
+          {hidden && (
+            <>
+              <a href={graphHash({ ...route, showExternal: true })}>
+                Show undocumented names
+              </a>{' '}
+              or{' '}
+            </>
+          )}
+          <a href={graphHash({ ...route, focus: null, node: null, to: null })}>
+            see the whole graph
+          </a>
+          .
+        </p>
+      </StateView>
+    );
+  } else if (shown.nodes.length === 0) {
+    canvas = (
+      <StateView kind="empty" centred title="Nothing to show">
+        <p>
+          {hiddenExternal > 0 ? (
+            <>
+              The docs only mention undocumented names, and those are hidden.{' '}
+              <a href={graphHash({ ...route, showExternal: true })}>
+                Show undocumented names
+              </a>
+              .
+            </>
+          ) : (
+            'No dataset or pipeline docs were found.'
+          )}
+        </p>
+      </StateView>
+    );
+  } else {
+    canvas = (
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodeClick={(event, node) => {
+          setCursor(node.id);
+          if (event.shiftKey && selected !== null && node.id !== selected.id) {
+            select(selected.id, node.id);
+          } else {
+            quiet.current = node.id;
+            select(node.id);
+          }
+        }}
+        onNodeMouseEnter={(_, node) => setHoveredNode(node.id)}
+        onNodeMouseLeave={() => setHoveredNode(null)}
+        onPaneClick={() => (openTag !== null ? setOpenTag(null) : select(null))}
+        onMoveStart={(event) => {
+          // Only the reader's own panning and zooming unfits the view
+          if (event !== null) fitted.current = false;
+        }}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        nodesFocusable={false}
+        elementsSelectable={false}
+        edgesFocusable={false}
+        minZoom={0.05}
+        maxZoom={2.5}
+        attributionPosition="top-right"
+      >
+        <ViewportPortal>
+          <BandFrames frames={frames} hot={hoveredBand} />
+        </ViewportPortal>
+        <CanvasControls
+          canvasRef={canvasRef}
+          reducedMotion={reducedMotion}
+          onFit={() => fitAll(300)}
+        />
+        {minimap && (
+          <MiniMap
+            pannable
+            zoomable
+            position="bottom-right"
+            ariaLabel="Minimap"
+            nodeClassName={(node) =>
+              miniMapClass((node as LineageNode).data.node)
+            }
+          />
+        )}
+      </ReactFlow>
+    );
+  }
 
   return (
     <div className="graph-page">
-      <div className="graph-toolbar" role="toolbar" aria-label="Graph view">
-        <h1 className="visually-hidden">Lineage graph</h1>
-        <GraphFind nodes={graph?.nodes ?? []} onPick={find} />
-        <div className="segmented" role="group" aria-label="What to lay out">
-          <button
-            type="button"
-            aria-pressed={focus === null}
-            onClick={() => setView({ focus: null })}
-          >
-            Whole graph
-          </button>
-          <button
-            type="button"
-            aria-pressed={focus !== null}
-            disabled={focus === null && selected === null}
-            title={
-              selected === null && focus === null
-                ? 'Select a node first'
-                : undefined
-            }
-            onClick={() =>
-              setView({
-                focus: selected?.id ?? focus,
-                node: selected?.id ?? focus,
-                to: null,
-              })
-            }
-          >
-            Only this lineage
-          </button>
-        </div>
-        <label className="graph-option">
-          Depth
-          <span className="select-wrap">
-            <select
-              className="select"
-              value={depth ?? 'all'}
-              onChange={(event) =>
-                setView({
-                  depth: (event.target.value === 'all'
-                    ? null
-                    : Number(event.target.value)) as Depth,
-                })
+      <GraphToolbar
+        nodes={graph?.nodes ?? []}
+        route={route}
+        target={selected?.id ?? focus}
+        depthApplies={selected !== null || focus !== null}
+        counts={
+          graph === null
+            ? null
+            : {
+                nodes: shown.nodes.length,
+                links: shown.edges.length - tagged,
+                tags: tagged,
               }
-            >
-              <option value="all">all</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-            </select>
-            <ChevronDown size={14} aria-hidden="true" />
-          </span>
-        </label>
-        <label className="graph-option checkbox">
-          <input
-            type="checkbox"
-            checked={showExternal}
-            onChange={(event) =>
-              setView({ showExternal: event.target.checked })
-            }
-          />
-          Undocumented names
-        </label>
-        <label
-          className="graph-option checkbox"
-          title="Dataset to dataset links that a pipeline between the same datasets also declares"
-        >
-          <input
-            type="checkbox"
-            checked={showRedundant}
-            onChange={(event) =>
-              setView({ showRedundant: event.target.checked })
-            }
-          />
-          Direct links a pipeline also gives
-        </label>
-        <label
-          className="graph-option checkbox"
-          title="Draw the links of the shared lookups instead of a tag on each reader"
-        >
-          <input
-            type="checkbox"
-            checked={lookupWires}
-            onChange={(event) => setView({ lookupWires: event.target.checked })}
-          />
-          Wires for shared lookups
-        </label>
-        {graph !== null && (
-          <span className="graph-counts" data-testid="graph-counts">
-            {counts}
-          </span>
-        )}
-      </div>
+        }
+        panelCollapsed={panel.collapsed}
+        onFind={find}
+        onView={setView}
+        onTogglePanel={() => panel.setCollapsed(!panel.collapsed)}
+      />
       <div className="graph-body">
-        <div className="graph-canvas">
-          {graph === null ? (
-            <StateView kind="loading" centred title="Loading the graph…" />
-          ) : focus !== null && focusNode === null ? (
-            <StateView
-              kind="empty"
-              centred
-              title={`This node is not in the graph${
-                !showExternal && focus.startsWith('external:')
-                  ? ' while undocumented names are hidden'
-                  : ''
-              }`}
-              detail={focus}
-            >
-              <p>
-                {!showExternal && focus.startsWith('external:') && (
-                  <>
-                    <a href={graphHash({ ...route, showExternal: true })}>
-                      Show undocumented names
-                    </a>{' '}
-                    or{' '}
-                  </>
-                )}
-                <a
-                  href={graphHash({
-                    ...route,
-                    focus: null,
-                    node: null,
-                    to: null,
-                  })}
-                >
-                  see the whole graph
-                </a>
-                .
-              </p>
-            </StateView>
-          ) : (
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              onNodeClick={(event, node) => {
-                if (
-                  event.shiftKey &&
-                  selected !== null &&
-                  node.id !== selected.id
-                ) {
-                  select(selected.id, node.id);
-                } else {
-                  select(node.id);
-                }
-              }}
-              onPaneClick={() =>
-                openTag !== null ? setOpenTag(null) : select(null)
-              }
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable={false}
-              edgesFocusable={false}
-              minZoom={0.05}
-              maxZoom={2.5}
-              attributionPosition="top-right"
-            >
-              <ViewportPortal>
-                <BandFrames frames={frames} />
-              </ViewportPortal>
-              <Controls showInteractive={false} position="top-left" />
-              <MiniMap
-                pannable
-                zoomable
-                position="bottom-right"
-                nodeClassName={(node) =>
-                  miniMapClass((node as LineageNode).data.node)
-                }
-              />
-            </ReactFlow>
+        <div
+          className="graph-canvas"
+          ref={canvasRef}
+          onKeyDown={onCanvasKey}
+          data-zoom="detail"
+        >
+          {canvas}
+          {notice !== null && (
+            <div className="graph-notice" role="status">
+              <p>{notice.text}</p>
+              <div className="graph-notice-actions">
+                {notice.actions.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={action.run}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
-        <aside className="panel graph-side" aria-label="Graph details">
-          {selected !== null && lineage !== null && graph !== null ? (
-            <GraphDetails
+        {!panel.collapsed && (
+          <div
+            className="resizer graph-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize the side panel"
+            aria-controls="graph-panel"
+            aria-valuenow={panel.width}
+            tabIndex={0}
+            title="Drag to resize; arrow keys work too"
+            onPointerDown={onResizeStart}
+            onKeyDown={onResizeKey}
+          />
+        )}
+        <aside
+          id="graph-panel"
+          className="panel graph-side"
+          aria-label="Graph details"
+          hidden={panel.collapsed}
+          style={{ width: panel.width }}
+        >
+          {graph === null ? null : selected !== null &&
+            path !== null &&
+            lineage !== null ? (
+            <PathDetails
+              shown={shown}
+              from={selected}
+              to={path.to}
+              path={path.between}
+              onSelect={pickFromPanel}
+              onSwap={() => select(path.to.id, selected.id)}
+              onClearSecond={() => select(selected.id)}
+              onClose={() => select(null)}
+            />
+          ) : selected !== null && lineage !== null ? (
+            <NodeDetails
               graph={graph}
               shown={shown}
               node={selected}
               lookups={lookups}
-              reads={reads.get(selected.id) ?? []}
+              feeds={feeds}
               lineage={lineage}
-              path={path}
               focused={focus !== null && focus === selected.id}
-              onSelect={(id) => {
-                select(id);
-                setCentreOn(id);
-              }}
+              onSelect={pickFromPanel}
               onFocus={() =>
                 setView({ focus: selected.id, node: selected.id, to: null })
               }
+              onWhole={() => setView({ focus: null })}
               onClose={() => select(null)}
             />
           ) : (
-            <>
-              <div className="panel-header">
-                <h2>Overview</h2>
-              </div>
-              <div className="panel-section">
-                <p className="panel-hint">
-                  Click a node to trace everything upstream and downstream of
-                  it.
-                </p>
-              </div>
-              {frames.length > 0 && (
-                <BandList
-                  frames={frames}
-                  onPick={(frame) => fitRect(frame, 1.5, 300)}
-                />
-              )}
-            </>
+            <GraphOverview
+              frames={frames}
+              summary={summary}
+              hiddenExternal={hiddenExternal}
+              onShowExternal={() => setView({ showExternal: true })}
+              onPickBand={(frame) => {
+                fitted.current = false;
+                fitRect(frame, 1.5, 300);
+              }}
+              onHoverBand={setHoveredBand}
+            />
           )}
-          <Legend />
         </aside>
       </div>
     </div>

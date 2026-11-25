@@ -55,7 +55,10 @@ export function GraphFind({
           } else if (event.key === 'Enter') {
             pick(hits[current]);
           } else if (event.key === 'Escape') {
+            // First Esc closes the list, a second clears the box
+            if (!open || query === '') setQuery('');
             setOpen(false);
+            event.stopPropagation();
           }
         }}
       />
@@ -65,7 +68,14 @@ export function GraphFind({
           id="graph-find-results"
           role="listbox"
         >
-          {hits.length === 0 && <li className="muted">No match</li>}
+          {hits.length === 0 && (
+            <li className="graph-find-empty" role="presentation">
+              <span>No name or alias matches “{query.trim()}”.</span>
+              <span className="muted">
+                Datasets, pipelines and undocumented names are all searched.
+              </span>
+            </li>
+          )}
           {hits.map((node, index) => (
             <li
               key={node.id}

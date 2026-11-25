@@ -9,6 +9,8 @@ export const STORAGE_KEYS = {
   sidebarWidth: 'rcd-viewer.sidebar-width',
   sidebarCollapsed: 'rcd-viewer.sidebar-collapsed',
   collapsedGroups: 'rcd-viewer.collapsed-groups',
+  graphPanelWidth: 'rcd-viewer.graph-panel-width',
+  graphPanelCollapsed: 'rcd-viewer.graph-panel-collapsed',
 } as const;
 
 export function parseThemePreference(raw: string | null): ThemePreference {
