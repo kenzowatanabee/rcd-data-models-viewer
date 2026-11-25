@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { docHeader } from './docHeader';
+import { docHeader } from './docHeaderModel';
 import { splitFrontMatter } from './frontMatter';
 
 const header = (yaml: string) =>

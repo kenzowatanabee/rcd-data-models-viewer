@@ -2,7 +2,7 @@ import { CircleCheck, PencilLine, Waypoints } from 'lucide-react';
 import type { Ref } from 'react';
 
 import { CopyButton } from './CopyButton';
-import type { DocHeaderModel } from './docHeader';
+import type { DocHeaderModel } from './docHeaderModel';
 import { inlineParts } from './outline';
 import { graphHash } from './route';
 

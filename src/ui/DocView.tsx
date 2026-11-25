@@ -11,13 +11,13 @@ import {
 import type { GraphResponse } from '../server/api';
 import { fetchDoc, type Loaded } from './api';
 import { DocHeader } from './DocHeader';
+import { docHeader } from './docHeaderModel';
 import { FlowDocsContext } from './FlowDiagram';
 import { docLinker } from './flowTrace';
-import { docHeader } from './docHeader';
 import { splitFrontMatter } from './frontMatter';
 import { LineagePanel } from './LineagePanel';
 import { Markdown } from './Markdown';
-import { OutlineMenu, OutlinePanel, useScrollSpy } from './Outline';
+import { OutlineMenu, OutlinePanel, useScrollSpy } from './OutlinePanel';
 import {
   plainTitle,
   sameOutline,
