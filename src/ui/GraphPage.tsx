@@ -59,6 +59,7 @@ import {
 } from './GraphParts';
 import { GraphToolbar } from './GraphToolbar';
 import { graphHash, type GraphRoute } from './route';
+import { useShortcut } from './ShortcutLayer';
 import { STORAGE_KEYS, motionDuration, parseFlag } from './settings';
 import { StateView } from './State';
 import { readSetting, useReducedMotion, writeSetting } from './storage';
@@ -599,6 +600,8 @@ function GraphView({ data, route: address }: Props) {
     setPending({ base: addressHash, change });
     go({ ...route, ...change });
   };
+
+  useShortcut('toggle-panel', () => panel.setCollapsed(!panel.collapsed));
 
   // Esc steps back: the open tag, then the second node, then the selection
   useEffect(() => {

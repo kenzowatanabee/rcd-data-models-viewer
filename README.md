@@ -3,9 +3,10 @@
 A local viewer for [`rcd-data-models`](https://github.com/kenzowatanabee/rcd-data-models),
 the data dictionary and lineage map of the RCD Domo stack.
 
-**Current state: indexer, viewer and lineage graph.** The viewer shows the docs, their
-front-matter and their direct lineage, and draws the whole lineage as an interactive
-graph; there is no column or full-text search yet.
+**Current state: indexer, viewer, lineage graph and docs health.** The viewer shows the
+docs, their front-matter and their direct lineage, draws the whole lineage as an
+interactive graph, and lists what to fix in the docs; quick open finds docs, names and
+headings, but there is no column or full-text search yet.
 
 The viewer never copies the docs. It reads a clone of `rcd-data-models` from a path you
 give it, so it shows whatever branch that clone has checked out.
@@ -30,8 +31,9 @@ stops with Ctrl+C. The path is checked first: if it has no `docs/datasets` and
 
 What it shows:
 
-- **Top bar:** the two sections, Docs and Lineage graph ("Docs" returns to the last doc
-  open), the name of the docs folder being viewed (the full path on hover), and the
+- **Top bar:** the three sections, Docs, Lineage graph and Docs health ("Docs" returns
+  to the last doc open; Docs health shows how many things there are to fix), "Go to…"
+  with its shortcut (quick open, see below), the name of the docs folder being viewed (the full path on hover), and the
   theme: light, dark or the system's. The theme is remembered, and diagrams and the
   graph switch with it.
 - **Sidebar:** datasets (with their `layer`, as a coloured marker and its name),
@@ -86,7 +88,9 @@ What it shows:
   marker and are not clickable), and the gaps that involve the doc: one-sided links and
   ambiguous, unresolved or wrong-kind references, each explained with the front-matter
   field and the file to fix.
-- **Landing page:** the indexer summary (counts, problems) and the repo `README.md`.
+- **Landing page:** the indexer summary (counts of docs, edges and references, and of
+  each kind of gap, each linking to its section of the health page) and the repo
+  `README.md`.
 - **Lineage graph** (`#/graph`, in the top bar): see below. There, `/` focuses the
   find box.
 
@@ -94,8 +98,80 @@ The address is `#/doc/<repo-relative path>`, so back, forward and reload work. W
 Markdown file in the clone changes, the open page and the index refresh by themselves.
 
 The server only reads Markdown files inside the clone (`GET /api/graph`,
-`GET /api/doc?file=<repo-relative path>`); other paths, `.git` and anything outside the
+`GET /api/doc?file=<repo-relative path>`, `GET /api/headings`); other paths, `.git` and anything outside the
 clone are refused.
+
+### Quick open
+
+Ctrl+K (⌘K on macOS), or "Go to…" in the top bar, opens a search box over every dataset,
+pipeline and other doc, the undocumented names, the `##` to `####` headings of every
+doc, and a few commands (go to a section, switch the theme, show or hide the sidebar,
+show the open doc in the graph, open the selected graph node's doc, copy the open doc's
+path). Before anything is typed it lists the last 8 items opened (remembered) and the
+commands.
+
+Matching ignores case, accents and the difference between spaces, hyphens and
+underscores, as the sidebar filter does. The query is split into words and every word
+must match, in any order, so `mkt cust compl` finds `RCD_TAB_MKT_CUSTOMER_COMPLETO`.
+A whole word or the start of a word ranks above a match inside a word, which ranks above
+letters spread over the starts of words (`rsr` for `RCD_SORT_REC`); a match on the
+`name` ranks above one on an alias, which ranks above one on the path, title or a
+heading; then the name the query covers most, then the shorter name. Matched letters are
+underlined, and a match on an alias or path is shown under the name. Results are grouped
+by kind, the group with the best match first.
+
+↑ and ↓ (Home and End with an empty box, or with Ctrl/⌘) move, Enter opens the doc (or
+the graph, for an undocumented name; a heading opens at that heading), Ctrl/⌘+Enter
+opens the item in the lineage graph instead, and Esc or a click outside closes it and
+returns focus to where it was. The heading index is built by the server once and rebuilt
+after a doc changes; searching makes no request per keystroke.
+
+### Keyboard shortcuts
+
+`?` lists them all. They do nothing while typing in a text field (except Ctrl/⌘+K), while
+a dialog is open, or during input-method composition, and none uses a browser shortcut.
+
+| Keys                      | Where            | Does                                                                                |
+| :------------------------ | :--------------- | :---------------------------------------------------------------------------------- |
+| Ctrl/⌘+K                  | everywhere       | quick open                                                                          |
+| `?`                       | everywhere       | the list of shortcuts                                                               |
+| `/`                       | everywhere       | focus the sidebar filter (the find box on the graph, the filter on the health page) |
+| `g` `d`, `g` `g`, `g` `h` | everywhere       | go to Docs, the lineage graph, Docs health                                          |
+| `[`                       | doc pages        | show or hide the sidebar                                                            |
+| `]`                       | doc pages, graph | show or hide the right-hand column or side panel                                    |
+| `j` / `k`, Alt+↓ / Alt+↑  | doc pages        | next / previous doc in the sidebar's order                                          |
+| `t`                       | doc pages        | back to the top                                                                     |
+| `f`, `0`                  | graph            | fit to the window, actual size                                                      |
+
+Two-key sequences must be typed within about a second. On a doc page wide enough for the
+right-hand column, `]` folds it away (remembered); the lineage then sits above the doc
+and the outline becomes the drop-down. The graph keeps its own keys (Esc, arrows and
+Enter on a node) as described below.
+
+### Docs health
+
+`#/health` lists everything the indexer found that needs fixing, as a to-do list. A row
+of counts at the top links to each section:
+
+- **Docs the indexer could not read:** no front-matter, invalid YAML, no `name`, a `type`
+  that disagrees with the folder, or a `name` two docs share, with what to change.
+- **Ambiguous references:** a name two docs share, the docs that have it and every field
+  that writes it.
+- **Wrong-kind references:** a field naming a doc of the other kind.
+- **Undocumented names:** each unresolved name once, every doc and field that mentions it,
+  and how many nodes lie downstream of it, most first.
+- **One-sided links:** the doc and field that declare the link, and the field to add on
+  the other doc; marked uncertain when it may be there under an ambiguous name.
+- **Datasets linked to nothing.**
+- **Direct links with no pipeline:** a dataset's `upstream` naming another dataset with no
+  pipeline between them, which suggests an undocumented pipeline.
+- **Status and staleness:** `draft` / `reviewed` counts by kind, and the 10 docs with the
+  oldest `last_updated`.
+
+Each section explains what it means and what to change, links every item to its doc (and
+to the graph), folds away (sections with nothing to do start folded and say "All good"),
+and has "Copy as checklist", which copies it as a Markdown to-do list. The filter box
+searches every section. The page updates when a doc is saved.
 
 ### Diagrams
 

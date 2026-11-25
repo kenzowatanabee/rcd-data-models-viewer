@@ -1,6 +1,8 @@
 import {
   FileText,
   Folder,
+  HeartPulse,
+  Search,
   Monitor,
   Moon,
   PanelLeftClose,
@@ -10,15 +12,20 @@ import {
 } from 'lucide-react';
 
 import { folderName, type ThemePreference } from './settings';
+import { IS_MAC, Keys } from './ShortcutLayer';
 import { useTheme } from './theme';
 
-export type Section = 'docs' | 'graph';
+export type Section = 'docs' | 'graph' | 'health';
 
 interface Props {
   section: Section;
   /** Where "Docs" leads: the last doc open, so switching back is cheap. */
   docsHref: string;
   graphHref: string;
+  healthHref: string;
+  /** To-do items on the health page; null until the index loads. */
+  issues: number | null;
+  onPalette: () => void;
   docsPath: string | null;
   /** Null where the section has no sidebar. */
   sidebar: { collapsed: boolean; onToggle: () => void } | null;
@@ -34,6 +41,9 @@ export function TopBar({
   section,
   docsHref,
   graphHref,
+  healthHref,
+  issues,
+  onPalette,
   docsPath,
   sidebar,
 }: Props) {
@@ -41,7 +51,9 @@ export function TopBar({
   const sections = [
     { id: 'docs', label: 'Docs', href: docsHref, icon: FileText },
     { id: 'graph', label: 'Lineage graph', href: graphHref, icon: Waypoints },
+    { id: 'health', label: 'Docs health', href: healthHref, icon: HeartPulse },
   ] as const;
+  const shortcut = IS_MAC ? '⌘K' : 'Ctrl+K';
   return (
     <header className="topbar">
       {sidebar !== null && (
@@ -74,12 +86,33 @@ export function TopBar({
               <a href={href} aria-current={section === id ? 'page' : undefined}>
                 <Icon size={15} aria-hidden="true" />
                 {label}
+                {id === 'health' && issues !== null && issues > 0 && (
+                  <span
+                    className="nav-badge tabular"
+                    title={`${issues} things to fix`}
+                  >
+                    <span className="visually-hidden">, </span>
+                    {issues}
+                    <span className="visually-hidden"> to fix</span>
+                  </span>
+                )}
               </a>
             </li>
           ))}
         </ul>
       </nav>
       <span className="topbar-spacer" />
+      <button
+        type="button"
+        className="palette-trigger"
+        onClick={onPalette}
+        aria-keyshortcuts={IS_MAC ? 'Meta+K' : 'Control+K'}
+        title={`Quick open (${shortcut})`}
+      >
+        <Search size={14} aria-hidden="true" />
+        <span className="palette-trigger-label">Go to…</span>
+        <Keys chord="mod+k" />
+      </button>
       {docsPath !== null && (
         <span className="docs-folder" title={`Docs folder: ${docsPath}`}>
           <Folder size={14} aria-hidden="true" />

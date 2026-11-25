@@ -2,7 +2,6 @@ import { Minus, Plus, Scan, X } from 'lucide-react';
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,6 +11,7 @@ import {
   type WheelEvent,
 } from 'react';
 
+import { ModalDialog } from './Dialog';
 import {
   centred,
   fitView,
@@ -50,7 +50,6 @@ export function Lightbox({
   tools,
   children,
 }: LightboxProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
@@ -112,17 +111,6 @@ export function Lightbox({
       };
     });
   }, [target]);
-
-  useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog === null) return;
-    // A modal dialog keeps focus inside it and makes the page inert
-    if (!dialog.open) dialog.showModal();
-    // Start on the diagram, so the arrow and zoom keys work at once
-    viewportRef.current?.focus();
-    fit();
-    return () => dialog.close();
-  }, [fit]);
 
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -196,34 +184,14 @@ export function Lightbox({
   };
 
   return (
-    <dialog
-      ref={dialogRef}
+    <ModalDialog
       className="lightbox"
-      aria-label={label}
-      // Esc fires `cancel`; let React own the closing
-      onKeyDown={(event) => {
-        if (event.key !== 'Tab') return;
-        // Keep Tab inside the dialog instead of escaping to the browser
-        const focusable = [
-          ...event.currentTarget.querySelectorAll<HTMLElement>(
-            'button, input, a[href], [tabindex="0"]',
-          ),
-        ];
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (!first || !last) return;
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      }}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
+      label={label}
+      onClose={onClose}
+      closeOnBackdrop
+      onOpen={fit}
+      // Start on the diagram, so the arrow and zoom keys work at once
+      initialFocus={viewportRef}
     >
       <div className="lightbox-toolbar">
         <div className="lightbox-tools">
@@ -311,6 +279,6 @@ export function Lightbox({
           {children}
         </div>
       </div>
-    </dialog>
+    </ModalDialog>
   );
 }

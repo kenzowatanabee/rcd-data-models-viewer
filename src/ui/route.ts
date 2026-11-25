@@ -17,10 +17,12 @@ export interface GraphRoute {
 export type Route =
   | { view: 'home' }
   | { view: 'doc'; file: string; anchor: string | null }
+  | { view: 'health'; section: string | null }
   | ({ view: 'graph' } & GraphRoute);
 
 const DOC_PREFIX = '#/doc/';
 const GRAPH = '#/graph';
+const HEALTH = '#/health';
 
 export const DEFAULT_GRAPH: GraphRoute = {
   focus: null,
@@ -33,10 +35,14 @@ export const DEFAULT_GRAPH: GraphRoute = {
 };
 
 /**
- * Reads `#/doc/<file>[#anchor]` and `#/graph[/<node id>][?options]`;
- * anything else is the landing view.
+ * Reads `#/doc/<file>[#anchor]`, `#/graph[/<node id>][?options]` and
+ * `#/health[#section]`; anything else is the landing view.
  */
 export function parseHash(hash: string): Route {
+  if (hash === HEALTH || hash.startsWith(`${HEALTH}#`)) {
+    const section = safeDecode(hash.slice(HEALTH.length + 1));
+    return { view: 'health', section: section === '' ? null : section };
+  }
   if (
     hash === GRAPH ||
     hash.startsWith(`${GRAPH}/`) ||
@@ -58,6 +64,9 @@ export function parseHash(hash: string): Route {
 export function docHash(file: string, anchor: string | null = null): string {
   return `${DOC_PREFIX}${encodePath(file)}${anchor === null ? '' : `#${encodeURIComponent(anchor)}`}`;
 }
+
+export const healthHash = (section: string | null = null) =>
+  section === null ? HEALTH : `${HEALTH}#${encodeURIComponent(section)}`;
 
 /** `rest` is what follows `#/graph`: `[/<id>][?query]`. */
 function parseGraph(rest: string): GraphRoute {

@@ -24,9 +24,16 @@ import {
   splitTitle,
   type OutlineItem,
 } from './outline';
+import { STORAGE_KEYS, parseFlag } from './settings';
+import { useShortcut } from './ShortcutLayer';
 import { githubSlug } from './slug';
 import { StateView } from './State';
-import { useMediaQuery, useReducedMotion } from './storage';
+import {
+  readSetting,
+  useMediaQuery,
+  useReducedMotion,
+  writeSetting,
+} from './storage';
 import { Summary } from './Summary';
 import { useDocScroll } from './useDocScroll';
 
@@ -115,7 +122,14 @@ export function DocView({ file, anchor, data, version, landing }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const articleRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
-  const wide = useMediaQuery(WIDE);
+  const wideWindow = useMediaQuery(WIDE);
+  // `]` folds the right-hand column away; the doc then uses the narrow
+  // layout, with the lineage above it and the outline as a menu
+  const [asideHidden, setAsideHidden] = useState(() =>
+    parseFlag(readSetting(STORAGE_KEYS.docAsideCollapsed)),
+  );
+  const wide = wideWindow && !asideHidden;
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     let cancelled = false;
@@ -184,6 +198,22 @@ export function DocView({ file, anchor, data, version, landing }: Props) {
     onSelect: scrollTo,
   };
   const aside = wide && (lineage || hasOutline);
+  useShortcut(
+    'toggle-panel',
+    wideWindow && (lineage || hasOutline)
+      ? () => {
+          setAsideHidden(!asideHidden);
+          writeSetting(STORAGE_KEYS.docAsideCollapsed, String(!asideHidden));
+        }
+      : null,
+  );
+  useShortcut('top', () => {
+    scrollRef.current?.scrollTo({
+      top: 0,
+      behavior: reducedMotion ? 'auto' : 'smooth',
+    });
+    titleRef.current?.focus({ preventScroll: true });
+  });
 
   return (
     <div className={`doc-layout${aside ? ' with-aside' : ''}`}>

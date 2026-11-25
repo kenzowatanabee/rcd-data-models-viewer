@@ -6,7 +6,6 @@ import {
   SIDEBAR_MIN,
   clampSidebarWidth,
   folderName,
-  isFilterShortcut,
   motionDuration,
   nextIndex,
   parseCollapsedGroups,
@@ -15,7 +14,6 @@ import {
   parseThemePreference,
   resolveTheme,
   serialiseCollapsedGroups,
-  type KeyLike,
 } from './settings';
 
 describe('theme', () => {
@@ -84,31 +82,6 @@ describe('folderName', () => {
       'rcd-data-models',
     );
     expect(folderName('docs')).toBe('docs');
-  });
-});
-
-describe('isFilterShortcut', () => {
-  const key = (over: Partial<KeyLike>): KeyLike => ({
-    key: '/',
-    ctrlKey: false,
-    metaKey: false,
-    altKey: false,
-    targetTag: 'BODY',
-    targetEditable: false,
-    ...over,
-  });
-
-  it('takes a bare slash outside text fields', () => {
-    expect(isFilterShortcut(key({}))).toBe(true);
-    expect(isFilterShortcut(key({ targetTag: 'A' }))).toBe(true);
-  });
-
-  it('leaves typing and modified keys alone', () => {
-    expect(isFilterShortcut(key({ targetTag: 'INPUT' }))).toBe(false);
-    expect(isFilterShortcut(key({ targetTag: 'TEXTAREA' }))).toBe(false);
-    expect(isFilterShortcut(key({ targetEditable: true }))).toBe(false);
-    expect(isFilterShortcut(key({ ctrlKey: true }))).toBe(false);
-    expect(isFilterShortcut(key({ key: '?' }))).toBe(false);
   });
 });
 

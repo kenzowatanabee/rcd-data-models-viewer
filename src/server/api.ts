@@ -15,3 +15,11 @@ export const DOCS_CHANGED_EVENT = 'docs:changed';
 export interface DocsChangedPayload {
   files: string[];
 }
+
+/** Body of `GET /api/headings`: the headings of every viewable doc. */
+export interface HeadingsResponse {
+  docs: {
+    file: string;
+    headings: { id: string; text: string; depth: number }[];
+  }[];
+}
