@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "tsx src/server/start.ts",
     "index": "tsx src/indexer/cli.ts",
     "check": "prettier --ignore-unknown --check . && eslint && pnpm typecheck && pnpm test:ci",
     "format": "prettier --ignore-unknown --write .",
@@ -13,18 +14,28 @@
     "test:ci": "vitest run --no-color"
   },
   "dependencies": {
+    "mermaid": "^12.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@types/node": "^22.20.7",
+    "@types/react": "^18.3.32",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.14.0",
     "prettier": "^3.10.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.74.0",
+    "vite": "^5.4.21",
     "vitest": "^2.1.9"
   }
 }
