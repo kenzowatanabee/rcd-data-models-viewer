@@ -30,33 +30,3 @@ export function splitFrontMatter(text: string): SplitDoc {
     return { data: null, error: message, body };
   }
 }
-
-const HEADER_FIELDS: [key: string, label: string][] = [
-  ['type', 'Kind'],
-  ['layer', 'Layer'],
-  ['platform', 'Platform'],
-  ['status', 'Status'],
-  ['last_updated', 'Last updated'],
-  ['domo_id', 'Domo id'],
-];
-
-/** The front-matter fields worth showing above a doc, in a fixed order. */
-export function headerFields(
-  data: Record<string, unknown> | null,
-): { label: string; value: string }[] {
-  if (data === null) return [];
-  const fields: { label: string; value: string }[] = [];
-  for (const [key, label] of HEADER_FIELDS) {
-    const value = data[key];
-    if (value === null || value === undefined || value === '') continue;
-    // YAML reads a bare 2026-10-21 as a date
-    const text =
-      value instanceof Date
-        ? value.toISOString().slice(0, 10)
-        : Array.isArray(value)
-          ? value.map(String).join(', ')
-          : String(value);
-    fields.push({ label, value: text });
-  }
-  return fields;
-}

@@ -35,3 +35,21 @@ describe('rehypeHeadingIds', () => {
     ]);
   });
 });
+
+describe('rehypeHeadingIds with a reserved title', () => {
+  it('numbers duplicates of the title as GitHub does', () => {
+    const tree: HastNode = {
+      type: 'root',
+      children: [
+        {
+          type: 'element',
+          tagName: 'h2',
+          properties: {},
+          children: [{ type: 'text', value: 'Lineage' }],
+        },
+      ],
+    };
+    rehypeHeadingIds({ reserved: ['Lineage'] })(tree);
+    expect(tree.children?.[0]?.properties).toEqual({ id: 'lineage-1' });
+  });
+});

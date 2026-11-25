@@ -74,3 +74,90 @@ export function gapsFor(graph: Graph, file: string): Gaps {
     ),
   };
 }
+
+export interface DocRef {
+  file: string;
+  field: string;
+  /** The doc's `name`, or its path when the graph does not know it. */
+  name: string;
+}
+
+/** A one-sided link, as the two docs and fields involved. */
+export interface OneSidedGap {
+  /** The doc and field that declare the link. */
+  declared: DocRef;
+  /** The doc and field that should declare it too. */
+  missing: DocRef;
+  uncertain: boolean;
+}
+
+const KIND_OF_FIELD: Record<string, 'dataset' | 'pipeline'> = {
+  pipeline: 'pipeline',
+  upstream: 'dataset',
+  downstream: 'pipeline',
+  inputs: 'dataset',
+  outputs: 'dataset',
+};
+
+function split(declared: string): { file: string; field: string } {
+  const cut = declared.lastIndexOf('#');
+  return cut === -1
+    ? { file: declared, field: '' }
+    : { file: declared.slice(0, cut), field: declared.slice(cut + 1) };
+}
+
+const nameOf = (graph: Graph, file: string) =>
+  graph.nodes.find((node) => node.id === file)?.name ?? file;
+
+export function describeOneSided(
+  graph: Graph,
+  link: OneSidedLink,
+): OneSidedGap {
+  const declared = split(link.declaredBy);
+  const missing = split(link.missing);
+  return {
+    declared: { ...declared, name: nameOf(graph, declared.file) },
+    missing: { ...missing, name: nameOf(graph, missing.file) },
+    uncertain: link.uncertain,
+  };
+}
+
+export interface ReferenceGap {
+  status: 'ambiguous' | 'unresolved' | 'wrong-kind';
+  ref: string;
+  /** Where the name is written. */
+  at: DocRef;
+  /** What the field should name. */
+  expected: 'dataset' | 'pipeline' | null;
+  /** What the name matched instead, for wrong-kind. */
+  actual: string | null;
+  candidates: { file: string; name: string }[];
+}
+
+export function describeReference(
+  graph: Graph,
+  reference: Reference,
+): ReferenceGap {
+  const target =
+    reference.target === null
+      ? undefined
+      : graph.nodes.find((node) => node.id === reference.target);
+  return {
+    status:
+      reference.status === 'ambiguous' || reference.status === 'wrong-kind'
+        ? reference.status
+        : 'unresolved',
+    ref: reference.ref,
+    at: {
+      file: reference.file,
+      field: reference.field,
+      name: nameOf(graph, reference.file),
+    },
+    expected: KIND_OF_FIELD[reference.field] ?? null,
+    actual: reference.status === 'wrong-kind' ? (target?.kind ?? null) : null,
+    candidates: reference.candidates.map((file) => ({
+      file,
+      name: nameOf(graph, file),
+    })),
+  };
+}
