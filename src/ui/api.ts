@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import { DOCS_CHANGED_EVENT, type GraphResponse } from '../server/api';
+import {
+  DOCS_CHANGED_EVENT,
+  type GraphResponse,
+  type HeadingsResponse,
+} from '../server/api';
 
 export type Loaded<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -18,6 +22,16 @@ export async function fetchGraph(): Promise<Loaded<GraphResponse>> {
     const response = await fetch('/api/graph');
     if (!response.ok) return { ok: false, error: await errorOf(response) };
     return { ok: true, value: (await response.json()) as GraphResponse };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+export async function fetchHeadings(): Promise<Loaded<HeadingsResponse>> {
+  try {
+    const response = await fetch('/api/headings');
+    if (!response.ok) return { ok: false, error: await errorOf(response) };
+    return { ok: true, value: (await response.json()) as HeadingsResponse };
   } catch (error) {
     return { ok: false, error: (error as Error).message };
   }

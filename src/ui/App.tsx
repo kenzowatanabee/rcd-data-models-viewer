@@ -1,28 +1,42 @@
 import { RotateCw, TriangleExclamationPoint } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { GraphResponse } from '../server/api';
-import { fetchGraph, useDocsVersion } from './api';
+import type { GraphResponse, HeadingsResponse } from '../server/api';
+import { fetchGraph, fetchHeadings, useDocsVersion } from './api';
 import { DocView } from './DocView';
 import { GraphPage } from './GraphPage';
-import { graphHash, parseHash } from './route';
+import { healthReport, issueCount } from './health';
+import { HealthPage } from './HealthPage';
+import { Palette } from './Palette';
+import {
+  adjacentDoc,
+  commandItems,
+  contentItems,
+  parseRecent,
+  pushRecent,
+  sidebarOrder,
+  type PaletteItem,
+} from './paletteItems';
+import { docHash, graphHash, healthHash, parseHash } from './route';
 import {
   STORAGE_KEYS,
   clampSidebarWidth,
-  isFilterShortcut,
   parseFlag,
   parseSidebarWidth,
 } from './settings';
+import { ShortcutHelp, useShortcut } from './ShortcutLayer';
 import { Sidebar } from './Sidebar';
 import { StateView } from './State';
 import { readSetting, writeSetting } from './storage';
+import { useTheme } from './theme';
 import { TopBar } from './TopBar';
 
 const LANDING_DOC = 'README.md';
 
-/** The address to keep for "Docs": `hash` unless it is a graph view. */
+/** The address to keep for "Docs": `hash` unless it is another section. */
 function docsHashOf(hash: string, last: string): string {
-  if (parseHash(hash).view === 'graph') return last;
+  const { view } = parseHash(hash);
+  if (view === 'graph' || view === 'health') return last;
   return hash === '' ? '#/' : hash;
 }
 
@@ -70,7 +84,12 @@ export function App() {
   }, [version, retries]);
 
   const route = parseHash(hash);
-  const section = route.view === 'graph' ? 'graph' : 'docs';
+  const section =
+    route.view === 'graph'
+      ? 'graph'
+      : route.view === 'health'
+        ? 'health'
+        : 'docs';
 
   const viewport = useViewportWidth();
   const [storedWidth, setStoredWidth] = useState(() =>
@@ -85,6 +104,13 @@ export function App() {
     parseFlag(readSetting(STORAGE_KEYS.sidebarCollapsed)),
   );
   const setSidebarCollapsed = (value: boolean) => {
+    // Hiding the sidebar with focus in it would drop focus to the page
+    if (
+      value &&
+      document.getElementById('sidebar')?.contains(document.activeElement)
+    ) {
+      document.getElementById('main')?.focus();
+    }
     setCollapsed(value);
     writeSetting(STORAGE_KEYS.sidebarCollapsed, String(value));
   };
@@ -95,31 +121,145 @@ export function App() {
     if (focusFilter > 0) filterRef.current?.focus();
   }, [focusFilter]);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const shortcut = isFilterShortcut({
-        key: event.key,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        altKey: event.altKey,
-        targetTag: target?.tagName ?? '',
-        targetEditable: target?.isContentEditable ?? false,
-      });
-      if (!shortcut) return;
-      event.preventDefault();
-      if (section === 'graph') {
-        document.getElementById('graph-find-input')?.focus();
+  useShortcut('filter', () => {
+    if (section === 'graph') {
+      document.getElementById('graph-find-input')?.focus();
+      return;
+    }
+    if (section === 'health') {
+      document.getElementById('health-filter-input')?.focus();
+      return;
+    }
+    // Opens a collapsed sidebar first; the filter is focused once shown
+    setSidebarCollapsed(false);
+    setFocusFilter((n) => n + 1);
+  });
+
+  const go = (to: string) => {
+    window.location.hash = to;
+  };
+  const graphHref = section === 'graph' ? hash : graphHash();
+  useShortcut('go-docs', () => go(lastDocHash));
+  useShortcut('go-graph', () => go(graphHref));
+  useShortcut('go-health', () => go(healthHash()));
+  useShortcut(
+    'toggle-sidebar',
+    section === 'docs' ? () => setSidebarCollapsed(!collapsed) : null,
+  );
+  const order = useMemo(
+    () => (data === null ? [] : sidebarOrder(data)),
+    [data],
+  );
+  const step = (by: 1 | -1) => {
+    const next = adjacentDoc(
+      order,
+      route.view === 'doc' ? route.file : null,
+      by,
+    );
+    if (next !== null) go(docHash(next));
+  };
+  useShortcut('next-doc', section === 'docs' ? () => step(1) : null);
+  useShortcut('previous-doc', section === 'docs' ? () => step(-1) : null);
+
+  const [helpOpen, setHelpOpen] = useState(false);
+  useShortcut('help', () => setHelpOpen(true));
+
+  // Quick open; the heading index is fetched when it opens and is stale
+  const { setPreference } = useTheme();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [headings, setHeadings] = useState<{
+    version: number;
+    value: HeadingsResponse;
+  } | null>(null);
+  const [recent, setRecent] = useState(() =>
+    parseRecent(readSetting(STORAGE_KEYS.recent)),
+  );
+  const openPalette = () => {
+    setPaletteOpen(true);
+    if (headings?.version === version) return;
+    const asked = version;
+    void fetchHeadings().then((result) => {
+      if (result.ok) setHeadings({ version: asked, value: result.value });
+    });
+  };
+  useShortcut('palette', () => {
+    if (paletteOpen) setPaletteOpen(false);
+    else openPalette();
+  });
+  const headingIndex = headings?.value ?? null;
+  const items = useMemo(
+    () => (data === null ? [] : contentItems(data, headingIndex)),
+    [data, headingIndex],
+  );
+  const graphNode =
+    route.view === 'graph'
+      ? route.node
+      : route.view === 'doc' &&
+          data?.graph.nodes.some((node) => node.id === route.file)
+        ? route.file
+        : null;
+  const nodeFile =
+    route.view === 'graph' && route.node !== null
+      ? (data?.graph.nodes.find((node) => node.id === route.node)?.file ?? null)
+      : null;
+  const commands = commandItems({
+    section,
+    file: route.view === 'doc' ? route.file : null,
+    node: graphNode,
+    nodeFile,
+    sidebarCollapsed: collapsed,
+  });
+  const runItem = (item: PaletteItem, inGraph: boolean) => {
+    setPaletteOpen(false);
+    if (item.command === null) {
+      const next = pushRecent(recent, item.id);
+      setRecent(next);
+      writeSetting(STORAGE_KEYS.recent, JSON.stringify(next));
+    }
+    if (item.node !== null && (inGraph || item.kind === 'external')) {
+      go(graphHash({ focus: item.node, node: item.node }));
+      return;
+    }
+    if (item.file !== null) {
+      go(docHash(item.file, item.anchor));
+      return;
+    }
+    switch (item.command) {
+      case 'go-docs':
+        return go(lastDocHash);
+      case 'go-graph':
+        return go(graphHref);
+      case 'go-health':
+        return go(healthHash());
+      case 'theme-light':
+        return setPreference('light');
+      case 'theme-dark':
+        return setPreference('dark');
+      case 'theme-system':
+        return setPreference('system');
+      case 'toggle-sidebar':
+        return setSidebarCollapsed(!collapsed);
+      case 'show-in-graph':
+        if (graphNode !== null)
+          go(graphHash({ focus: graphNode, node: graphNode }));
         return;
-      }
-      // Opens a collapsed sidebar first; the filter is focused once shown
-      setCollapsed(false);
-      writeSetting(STORAGE_KEYS.sidebarCollapsed, 'false');
-      setFocusFilter((n) => n + 1);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [section]);
+      case 'open-doc':
+        if (nodeFile !== null) go(docHash(nodeFile));
+        return;
+      case 'copy-path':
+        if (route.view === 'doc') {
+          void navigator.clipboard.writeText(route.file).catch(() => undefined);
+        }
+        return;
+      case null:
+        return;
+    }
+  };
+
+  const issues = useMemo(
+    () => (data === null ? null : issueCount(healthReport(data.graph))),
+    [data],
+  );
 
   const file = route.view === 'doc' ? route.file : LANDING_DOC;
   const retry = (
@@ -150,7 +290,10 @@ export function App() {
         <TopBar
           section={section}
           docsHref={lastDocHash}
-          graphHref={section === 'graph' ? hash : graphHash()}
+          graphHref={graphHref}
+          healthHref={section === 'health' ? hash : healthHash()}
+          issues={issues}
+          onPalette={openPalette}
           docsPath={data?.docsPath ?? null}
           sidebar={
             section === 'docs'
@@ -200,6 +343,8 @@ export function App() {
               </StateView>
             ) : route.view === 'graph' ? (
               <GraphPage data={data} route={route} />
+            ) : route.view === 'health' ? (
+              <HealthPage data={data} section={route.section} />
             ) : (
               <DocView
                 file={file}
@@ -212,6 +357,17 @@ export function App() {
           </main>
         </div>
       </div>
+      {paletteOpen && (
+        <Palette
+          items={items}
+          commands={commands}
+          recent={recent}
+          headingsPending={headings?.version !== version}
+          onRun={runItem}
+          onClose={() => setPaletteOpen(false)}
+        />
+      )}
+      {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
     </>
   );
 }

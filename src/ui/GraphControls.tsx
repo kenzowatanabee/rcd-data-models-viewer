@@ -4,6 +4,7 @@ import { useEffect, type RefObject } from 'react';
 
 import { isOverview, zoomPercent } from './graphChrome';
 import { motionDuration } from './settings';
+import { useShortcut } from './ShortcutLayer';
 
 interface Props {
   /** The canvas element; it carries the zoom for the CSS. */
@@ -20,6 +21,8 @@ export function CanvasControls({ canvasRef, reducedMotion, onFit }: Props) {
   const zoom = useViewportStore((state) => state.transform[2]);
   const { zoomIn, zoomOut, zoomTo } = useReactFlow();
   const duration = motionDuration(200, reducedMotion);
+  useShortcut('graph-fit', onFit);
+  useShortcut('graph-actual', () => void zoomTo(1, { duration }));
 
   // Set straight on the element so zooming re-renders no nodes: the CSS
   // switches to blocks below the threshold and sizes band titles by it
@@ -59,7 +62,7 @@ export function CanvasControls({ canvasRef, reducedMotion, onFit }: Props) {
         <button
           type="button"
           className="btn btn-ghost btn-sm"
-          title="Fit everything shown to the window"
+          title="Fit everything shown to the window (f)"
           onClick={onFit}
         >
           <Maximize size={14} aria-hidden="true" />
@@ -68,7 +71,7 @@ export function CanvasControls({ canvasRef, reducedMotion, onFit }: Props) {
         <button
           type="button"
           className="btn btn-ghost btn-sm"
-          title="Zoom to actual size"
+          title="Zoom to actual size (0)"
           onClick={() => void zoomTo(1, { duration })}
         >
           100%

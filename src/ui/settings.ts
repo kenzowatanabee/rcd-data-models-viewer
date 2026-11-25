@@ -11,6 +11,8 @@ export const STORAGE_KEYS = {
   collapsedGroups: 'rcd-viewer.collapsed-groups',
   graphPanelWidth: 'rcd-viewer.graph-panel-width',
   graphPanelCollapsed: 'rcd-viewer.graph-panel-collapsed',
+  docAsideCollapsed: 'rcd-viewer.doc-aside-collapsed',
+  recent: 'rcd-viewer.recent',
 } as const;
 
 export function parseThemePreference(raw: string | null): ThemePreference {
@@ -74,25 +76,6 @@ export function serialiseCollapsedGroups(groups: ReadonlySet<GroupId>) {
 export function folderName(path: string): string {
   const parts = path.split(/[\\/]+/).filter((part) => part !== '');
   return parts[parts.length - 1] ?? path;
-}
-
-export interface KeyLike {
-  key: string;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  altKey: boolean;
-  /** Tag name of the event target, upper case as in the DOM. */
-  targetTag: string;
-  targetEditable: boolean;
-}
-
-/** `/` focuses the filter, unless the reader is typing somewhere. */
-export function isFilterShortcut(event: KeyLike): boolean {
-  if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) {
-    return false;
-  }
-  if (event.targetEditable) return false;
-  return !['INPUT', 'TEXTAREA', 'SELECT'].includes(event.targetTag);
 }
 
 /** Where focus goes in a list for an arrow, Home or End key; null if none. */

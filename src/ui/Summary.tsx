@@ -1,5 +1,6 @@
 import type { GraphResponse } from '../server/api';
-import { docHash } from './route';
+import { healthReport, sectionCount, type SectionId } from './health';
+import { healthHash } from './route';
 
 function tally<T>(items: T[], key: (item: T) => string): [string, number][] {
   const counts = new Map<string, number>();
@@ -9,12 +10,25 @@ function tally<T>(items: T[], key: (item: T) => string): [string, number][] {
   return [...counts].sort(([a], [b]) => a.localeCompare(b));
 }
 
+/** Gaps the summary counts; each links to its section on the health page. */
+const GAPS: { id: SectionId; label: string }[] = [
+  { id: 'problems', label: 'problems' },
+  { id: 'undocumented', label: 'undocumented names' },
+  { id: 'ambiguous', label: 'ambiguous names' },
+  { id: 'wrong-kind', label: 'wrong-kind references' },
+  { id: 'one-sided', label: 'one-sided links' },
+  { id: 'unlinked', label: 'unlinked datasets' },
+  { id: 'direct-links', label: 'links with no pipeline' },
+];
+
 /** What the indexer found, for the landing view. */
 export function Summary({ data }: { data: GraphResponse }) {
   const { graph } = data;
-  const nodes = tally(graph.nodes, (node) => node.kind);
-  const references = tally(graph.references, (reference) => reference.status);
-  const uncertain = graph.oneSided.filter((link) => link.uncertain).length;
+  const nodes = tally(
+    graph.nodes.filter((node) => node.kind !== 'external'),
+    (node) => node.kind,
+  );
+  const report = healthReport(graph);
   return (
     <section className="summary">
       <p className="muted">
@@ -23,7 +37,7 @@ export function Summary({ data }: { data: GraphResponse }) {
       <dl className="stats">
         {nodes.map(([kind, count]) => (
           <div key={kind}>
-            <dt>{kind === 'external' ? 'undocumented' : `${kind}s`}</dt>
+            <dt>{`${kind}s`}</dt>
             <dd>{count}</dd>
           </div>
         ))}
@@ -32,43 +46,27 @@ export function Summary({ data }: { data: GraphResponse }) {
           <dd>{graph.edges.length}</dd>
         </div>
         <div>
-          <dt>one-sided links</dt>
-          <dd>
-            {graph.oneSided.length}
-            {uncertain > 0 && (
-              <span className="muted"> ({uncertain} uncertain)</span>
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt>problems</dt>
-          <dd>{graph.problems.length}</dd>
+          <dt>references</dt>
+          <dd>{graph.references.length}</dd>
         </div>
       </dl>
-      <p className="muted">
-        References:{' '}
-        {references.map(([status, count]) => `${status} ${count}`).join(', ') ||
-          'none'}
+      <p className="summary-gaps">
+        <span className="muted">Docs health: </span>
+        {GAPS.map(({ id, label }, index) => {
+          const count = sectionCount(report, id);
+          return (
+            <span key={id}>
+              {index > 0 && <span className="muted"> · </span>}
+              <a
+                href={healthHash(id)}
+                className={count > 0 ? 'summary-gap has-issues' : 'summary-gap'}
+              >
+                <strong className="tabular">{count}</strong> {label}
+              </a>
+            </span>
+          );
+        })}
       </p>
-      {graph.problems.length > 0 && (
-        <details>
-          <summary>Problems ({graph.problems.length})</summary>
-          <ul>
-            {graph.problems.map((problem) => (
-              <li key={`${problem.kind}:${problem.files.join('|')}`}>
-                <span className="tag">{problem.kind}</span>{' '}
-                {problem.files.map((file, index) => (
-                  <span key={file}>
-                    {index > 0 && ', '}
-                    <a href={docHash(file)}>{file}</a>
-                  </span>
-                ))}{' '}
-                {problem.detail}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
     </section>
   );
 }
