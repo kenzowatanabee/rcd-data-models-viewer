@@ -10,6 +10,8 @@ export interface GraphRoute {
   depth: Depth;
   showExternal: boolean;
   showRedundant: boolean;
+  /** Draw the shared lookups' links as wires instead of tags. */
+  lookupWires: boolean;
 }
 
 export type Route =
@@ -27,6 +29,7 @@ export const DEFAULT_GRAPH: GraphRoute = {
   depth: null,
   showExternal: true,
   showRedundant: false,
+  lookupWires: false,
 };
 
 /**
@@ -72,6 +75,7 @@ function parseGraph(rest: string): GraphRoute {
     depth: depth === '1' ? 1 : depth === '2' ? 2 : null,
     showExternal: query.get('external') !== 'hide',
     showRedundant: query.get('links') === 'all',
+    lookupWires: query.get('lookups') === 'wires',
   };
 }
 
@@ -86,6 +90,7 @@ export function graphHash(route: Partial<GraphRoute> = {}): string {
   if (full.depth !== null) query.set('depth', String(full.depth));
   if (!full.showExternal) query.set('external', 'hide');
   if (full.showRedundant) query.set('links', 'all');
+  if (full.lookupWires) query.set('lookups', 'wires');
   const path = full.focus === null ? '' : `/${encodePath(full.focus)}`;
   const search = query.toString();
   return `${GRAPH}${path}${search === '' ? '' : `?${search}`}`;

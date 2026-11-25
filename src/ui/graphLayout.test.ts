@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { arrowPath, layoutGraph, routePath, wrapLabel } from './graphLayout';
+import {
+  arrowPath,
+  curvePath,
+  layoutBands,
+  layoutGraph,
+  routePath,
+  wrapLabel,
+  wrapNodes,
+  type Rect,
+} from './graphLayout';
 
 const box = (id: string) => ({ id, width: 100, height: 30 });
 const link = (from: string, to: string) => ({ key: `${from}>${to}`, from, to });
@@ -55,6 +64,144 @@ describe('layoutGraph', () => {
     const loose = layoutGraph({ nodes: [box('x')], edges: [] });
     expect(loose.unlinkedRow).toEqual({ x: 0, y: 0 });
     expect(loose.positions.get('x')?.y).toBeGreaterThan(0);
+  });
+});
+
+describe('wrapNodes', () => {
+  it('fills rows up to the width, then starts a new one', () => {
+    const wrapped = wrapNodes(['a', 'b', 'c'].map(box), 230);
+    expect(wrapped.positions.get('a')).toEqual({ x: 0, y: 0 });
+    expect(wrapped.positions.get('b')?.y).toBe(0);
+    expect(wrapped.positions.get('c')?.x).toBe(0);
+    expect(wrapped.positions.get('c')?.y).toBeGreaterThan(30);
+    expect(wrapped.width).toBe(214);
+    expect(wrapNodes([], 100).height).toBe(0);
+  });
+});
+
+describe('layoutBands', () => {
+  const inside = (rect: Rect | undefined, x: number, y: number) =>
+    rect !== undefined &&
+    x >= rect.x &&
+    y >= rect.y &&
+    x <= rect.x + rect.width &&
+    y <= rect.y + rect.height;
+  const overlap = (a: Rect, b: Rect) =>
+    a.x < b.x + b.width &&
+    b.x < a.x + a.width &&
+    a.y < b.y + b.height &&
+    b.y < a.y + a.height;
+
+  // F1: a -> p -> b -> q -> c ; F2: d -> r ; LOOK feeds p and r ; z alone
+  const input = {
+    nodes: ['a', 'p', 'b', 'q', 'c', 'd', 'r', 'LOOK', 'z'].map(box),
+    edges: [
+      link('a', 'p'),
+      link('p', 'b'),
+      link('b', 'q'),
+      link('q', 'c'),
+      link('d', 'r'),
+      link('LOOK', 'p'),
+      link('LOOK', 'r'),
+      link('c', 'd'),
+    ],
+    groups: [
+      {
+        id: 'lookups',
+        nodes: ['LOOK'],
+        column: 'side' as const,
+        arrange: 'wrap' as const,
+      },
+      {
+        id: 'F1',
+        nodes: ['a', 'p', 'b', 'q', 'c'],
+        column: 'main' as const,
+        arrange: 'flow' as const,
+      },
+      {
+        id: 'F2',
+        nodes: ['d', 'r'],
+        column: 'main' as const,
+        arrange: 'flow' as const,
+      },
+      {
+        id: 'loose',
+        nodes: ['z'],
+        column: 'main' as const,
+        arrange: 'wrap' as const,
+      },
+    ],
+  };
+  const layout = layoutBands(input);
+
+  it('frames every group and keeps each node inside its own frame', () => {
+    expect([...layout.bands.keys()]).toEqual(['lookups', 'F1', 'F2', 'loose']);
+    for (const group of input.groups) {
+      for (const id of group.nodes) {
+        const at = layout.positions.get(id);
+        expect(at).toBeDefined();
+        const band = layout.bands.get(group.id);
+        expect(inside(band, at?.x ?? NaN, at?.y ?? NaN)).toBe(true);
+        expect(inside(band, (at?.x ?? 0) + 100, (at?.y ?? 0) + 30)).toBe(true);
+      }
+    }
+    const frames = [...layout.bands.values()];
+    for (const [i, a] of frames.entries()) {
+      for (const b of frames.slice(i + 1)) expect(overlap(a, b)).toBe(false);
+    }
+  });
+
+  it('puts the side column left of everything else', () => {
+    const side = layout.bands.get('lookups') as Rect;
+    for (const id of ['F1', 'F2', 'loose']) {
+      expect(layout.bands.get(id)?.x).toBeGreaterThan(side.x + side.width);
+    }
+  });
+
+  it('packs small groups side by side', () => {
+    expect(layout.bands.get('F2')?.y).toBe(layout.bands.get('F1')?.y);
+    expect(layout.bands.get('F2')?.x).toBeGreaterThan(
+      layout.bands.get('F1')?.x ?? Infinity,
+    );
+  });
+
+  it('routes edges inside a family and curves the ones between groups', () => {
+    const x = (id: string) => layout.positions.get(id)?.x ?? NaN;
+    expect(x('a')).toBeLessThan(x('p'));
+    expect(x('q')).toBeLessThan(x('c'));
+    expect(layout.curved.has('a>p')).toBe(false);
+    expect([...layout.curved].sort()).toEqual(['LOOK>p', 'LOOK>r', 'c>d']);
+    for (const key of layout.curved) {
+      expect(layout.routes.get(key)).toHaveLength(4);
+    }
+  });
+
+  it('gives bounds that hold every frame', () => {
+    for (const band of layout.bands.values()) {
+      expect(band.x + band.width).toBeLessThanOrEqual(layout.bounds.width);
+      expect(band.y + band.height).toBeLessThanOrEqual(layout.bounds.height);
+    }
+  });
+
+  it('is the same for the same input and handles an empty one', () => {
+    expect(layoutBands(input)).toEqual(layout);
+    const empty = layoutBands({ nodes: [], edges: [], groups: [] });
+    expect(empty.bands.size).toBe(0);
+    expect(empty.bounds).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+  });
+});
+
+describe('curvePath', () => {
+  it('draws a cubic through four points', () => {
+    expect(
+      curvePath([
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 20, y: 5 },
+        { x: 30, y: 5 },
+      ]),
+    ).toBe('M0,0 C10,0 20,5 30,5');
+    expect(curvePath([])).toBe('');
   });
 });
 

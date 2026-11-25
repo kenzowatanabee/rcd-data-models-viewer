@@ -32,7 +32,8 @@ What it shows:
 
 - **Sidebar:** datasets (with their `layer`), pipelines, and the other Markdown files
   (`README.md`, `docs/*.md`, `guides/*.md`), with counts. The filter matches names and
-  aliases, ignoring case and accents.
+  aliases, ignoring case, accents and the difference between spaces, hyphens and
+  underscores (`hierarquia soa` finds `RCD_HIERARQUIA_SOA`).
 - **Doc page:** the Markdown with GitHub-style tables and Mermaid diagrams. The
   front-matter is not shown as text; its kind, layer, platform, status, last update and
   Domo id are shown as a header instead. Raw HTML in the Markdown is dropped, not
@@ -62,11 +63,36 @@ right, in the direction the data flows, so sources end up on the left and output
 the right. Drag to pan, scroll to zoom; the buttons at the top left zoom and fit the
 graph to the window, and the minimap at the bottom right (on wide windows) pans too.
 
+The whole graph is drawn as framed blocks rather than one network:
+
+- **Shared lookups:** a `dimension` dataset read by 3 or more pipelines is a shared
+  lookup (on the current docs: `DE PARA RD`, `PRODUCT_DIMENSION`, `RCD_PARA_RETIRAR`,
+  `RCD_SORT_REC_NACIONAL` and `STORE_DIMENSION`). Its links are not drawn and do not
+  affect the layout. Each node that reads lookups carries a tag such as "3 lookups";
+  hovering it lists them, clicking it opens the list, and a name in the list selects
+  that lookup. The lookups themselves sit in their own "Shared lookups" frame.
+  "Wires for shared lookups" draws their links as curves instead; the layout stays the
+  same.
+- **Shared feeds:** any other dataset or undocumented name read by 4 or more pipelines
+  (`Retailer POS datasets`, `RCD_SCANTECH`, `RCD_ATACADÃO`). Its links are drawn, but
+  they do not join the families it feeds: a feed stays in a frame of its own with
+  whatever produces it, titled "Shared feed: …", in a column on the left, and its
+  links run as curves to the right into the frames it feeds.
+- **Families:** what is left is split into families, the groups of nodes linked to
+  each other (ignoring direction). Each family is laid out on its own, in a frame
+  titled after its main output: the final dataset (one nothing in the family reads)
+  built from the most of the family, with "+ N more" when it has other final datasets.
+  A family with no final dataset is named after the dataset that feeds most of it.
+  Large families take a row each, largest first; small ones share rows. Nodes linked
+  to nothing are in the last frame, "Not linked to anything".
+
+With nothing selected, the side panel lists the frames with their node counts;
+clicking one zooms to it.
+
 - **Nodes:** datasets are rectangles with a coloured bar for their `layer` (source,
   dimension, intermediate, output; grey for anything else) and the layer written
   underneath. Pipelines are rounded and purple. Names no doc has are dashed and grey,
-  marked "undocumented". Nodes with no edges at all are shown in a row under the
-  graph, headed "Not linked to anything". The legend is in the side panel.
+  marked "undocumented". The legend is in the side panel.
 - **Direct links:** a dataset → dataset link from `upstream` is hidden by default when a
   pipeline between the same two datasets already declares the flow (the dataset is an
   input of the pipeline and the other is its output). Links with no such pipeline are
@@ -78,28 +104,33 @@ graph to the window, and the minimap at the bottom right (on wide windows) pans 
   everything built from it (orange), and dims the rest; clicking empty space clears it.
   The side panel shows the node's kind, layer and status, how many datasets, pipelines
   and undocumented names lie upstream and downstream, the ones furthest back (nothing
-  feeds them) and the ones it ends up in (nothing reads them), a count of lineage gaps,
-  and "Open doc" for documented nodes. Shift-clicking a second node shows only what
+  feeds them) and the ones it ends up in (nothing reads them), the shared lookups it
+  reads, a count of lineage gaps, and "Open doc" for documented nodes. Shared lookups
+  count as upstream like any other dataset: their tags light up on the traced nodes,
+  and selecting a lookup draws its links. Shift-clicking a second node shows only what
   lies between the two, and lists the pipelines on the way.
 - **Only this lineage:** lays out the selected node with only what is upstream and
   downstream of it. "Whole graph" goes back. Depth 1 or 2 limits both the highlight and
   this view to that many datasets away, with the pipelines between them; "all" has no
-  limit. "Show in graph" on a doc's lineage panel opens this view for that doc.
-- **Find:** the search box matches names and aliases the way the sidebar filter does
-  (ignoring case and accents), selects the node and centres the view on it, switching
+  limit. "Show in graph" on a doc's lineage panel opens this view for that doc. The
+  lineage is laid out as one family, with the shared lookups it uses in a frame
+  above it.
+- **Find:** the search box matches names and aliases the way the sidebar filter does,
+  selects the node and centres the view on it, switching
   to the whole graph, and showing undocumented names, if it is not in the current view.
 
 The address holds the view: `#/graph` for the whole graph, `#/graph?node=<id>` with a
 selection, `#/graph/<id>` for one node's lineage, plus `depth=1|2`, `external=hide` and
-`links=all` when they differ from the defaults. Node ids are doc paths or
+`links=all` and `lookups=wires` when they differ from the defaults. Node ids are doc paths or
 `external:<name>`, URL-encoded. Changing the view adds a history entry, so back and
 forward step through views; selecting a node replaces the current entry. When the
 docs change, the graph refreshes and keeps the selection while the node still exists;
 the layout is only recomputed when the drawn nodes or edges change.
 
 The whole graph is an overview: at around 90 nodes, fitted to a laptop screen, the
-labels are too small to read without zooming, and the dimension datasets that feed
-most pipelines draw long bundles of edges across the middle. Selecting a node, or
+labels are too small to read without zooming; zooming to one frame from the side panel
+makes them readable. The links from the shared feeds cross other frames on their way
+to the ones they feed. Selecting a node, or
 "Only this lineage", is the readable way to follow one flow.
 
 Not built yet: column and full-text search, a desktop package, and a production build.

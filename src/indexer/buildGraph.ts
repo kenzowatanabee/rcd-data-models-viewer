@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { parse as parseYaml } from 'yaml';
 
+import { normaliseName } from './names';
 import type {
   DocKind,
   Graph,
@@ -13,6 +14,8 @@ import type {
   Reference,
   RefField,
 } from './types';
+
+export { normaliseName };
 
 const FOLDERS: { dir: string; kind: DocKind }[] = [
   { dir: 'docs/datasets', kind: 'dataset' },
@@ -45,17 +48,6 @@ interface Doc extends GraphNode {
   kind: DocKind;
   file: string;
   refs: Record<RefField, string[]>;
-}
-
-/** Case, accents, backticks and space / hyphen / underscore differences. */
-export function normaliseName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[`*]/g, '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s\-_]+/g, '_');
 }
 
 function toList(value: unknown): string[] {
