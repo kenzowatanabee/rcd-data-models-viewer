@@ -1,3 +1,5 @@
+import { X } from 'lucide-react';
+
 import type { Graph, GraphNode } from '../indexer/types';
 import type { Between, Trace, VisibleGraph } from './graphModel';
 import { captionOf } from './graphNodes';
@@ -98,61 +100,72 @@ export function GraphDetails({
     gaps === null ? 0 : gaps.oneSided.length + gaps.references.length;
 
   return (
-    <aside className="graph-details" aria-label="Selected node">
-      <button
-        type="button"
-        className="graph-close"
-        aria-label="Clear the selection"
-        onClick={onClose}
-      >
-        ×
-      </button>
-      <h2>{node.name}</h2>
-      <dl className="fields">
-        <div>
-          <dt>kind</dt>
-          <dd>{node.kind === 'external' ? 'undocumented' : node.kind}</dd>
+    <>
+      <div className="panel-header">
+        <h2 className="graph-details-title">{node.name}</h2>
+        <button
+          type="button"
+          className="btn btn-ghost btn-icon btn-sm"
+          aria-label="Clear the selection"
+          title="Clear the selection"
+          onClick={onClose}
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      </div>
+      <div className="panel-section">
+        <dl className="fields">
+          <div>
+            <dt>kind</dt>
+            <dd>{node.kind === 'external' ? 'undocumented' : node.kind}</dd>
+          </div>
+          {node.layer !== null && (
+            <div>
+              <dt>layer</dt>
+              <dd>{node.layer}</dd>
+            </div>
+          )}
+          {node.status !== null && (
+            <div>
+              <dt>status</dt>
+              <dd>{node.status}</dd>
+            </div>
+          )}
+        </dl>
+        <div className="graph-actions">
+          {node.file !== null ? (
+            <a className="btn btn-sm btn-primary" href={docHash(node.file)}>
+              Open doc
+            </a>
+          ) : (
+            <span className="muted">No doc has this name.</span>
+          )}
+          {!focused && (
+            <button type="button" className="btn btn-sm" onClick={onFocus}>
+              Only this lineage
+            </button>
+          )}
         </div>
-        {node.layer !== null && (
-          <div>
-            <dt>layer</dt>
-            <dd>{node.layer}</dd>
-          </div>
-        )}
-        {node.status !== null && (
-          <div>
-            <dt>status</dt>
-            <dd>{node.status}</dd>
-          </div>
-        )}
-      </dl>
-      <p className="graph-actions">
-        {node.file !== null ? (
-          <a href={docHash(node.file)}>Open doc</a>
-        ) : (
-          <span className="muted">No doc has this name.</span>
-        )}
-        {!focused && (
-          <button type="button" className="link-button" onClick={onFocus}>
-            Only this lineage
-          </button>
-        )}
-      </p>
-      {gapCount > 0 && (
-        <p className="graph-gaps">
-          {gapCount} lineage {gapCount === 1 ? 'gap' : 'gaps'}, listed on the
-          doc page.
-        </p>
-      )}
-      {lookups.has(node.id) && (
-        <p className="graph-note">
-          Shared lookup, read by {readers.size}{' '}
-          {readers.size === 1 ? 'pipeline' : 'pipelines'}. Its links are drawn
-          while it is selected; otherwise its readers carry a tag.
-        </p>
+      </div>
+      {(gapCount > 0 || lookups.has(node.id)) && (
+        <div className="panel-section">
+          {gapCount > 0 && (
+            <p className="panel-warning">
+              {gapCount} lineage {gapCount === 1 ? 'gap' : 'gaps'}, listed on
+              the doc page.
+            </p>
+          )}
+          {lookups.has(node.id) && (
+            <p className="panel-note">
+              Shared lookup, read by {readers.size}{' '}
+              {readers.size === 1 ? 'pipeline' : 'pipelines'}. Its links are
+              drawn while it is selected; otherwise its readers carry a tag.
+            </p>
+          )}
+        </div>
       )}
       {reads.length > 0 && (
-        <section>
+        <section className="panel-section">
           <h3>
             Shared lookups it reads{' '}
             <span className="count">{reads.length}</span>
@@ -161,7 +174,7 @@ export function GraphDetails({
         </section>
       )}
       {path !== null && (
-        <section>
+        <section className="panel-section">
           <h3>Between this and {path.to.name}</h3>
           {path.between.nodes.size === 0 ? (
             <p className="muted">Neither feeds the other.</p>
@@ -179,7 +192,7 @@ export function GraphDetails({
           )}
         </section>
       )}
-      <section>
+      <section className="panel-section">
         <h3>
           <span className="swatch-line up" /> Upstream{' '}
           <span className="count">{lineage.upstream.size}</span>
@@ -192,7 +205,7 @@ export function GraphDetails({
           </>
         )}
       </section>
-      <section>
+      <section className="panel-section">
         <h3>
           <span className="swatch-line down" /> Downstream{' '}
           <span className="count">{lineage.downstream.size}</span>
@@ -205,9 +218,11 @@ export function GraphDetails({
           </>
         )}
       </section>
-      <p className="muted graph-hint">
-        Shift-click another node to see what lies between the two.
-      </p>
-    </aside>
+      <div className="panel-section">
+        <p className="panel-hint">
+          Shift-click another node to see what lies between the two.
+        </p>
+      </div>
+    </>
   );
 }

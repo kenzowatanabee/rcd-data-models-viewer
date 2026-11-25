@@ -1,0 +1,156 @@
+/*
+ * Design tokens. Components use only these roles, never raw values, so the
+ * light and dark themes are the same set of roles with different values.
+ * The theme is chosen by `data-theme` on <html> (set before first paint by
+ * index.html, which resolves the "system" preference).
+ */
+
+:root {
+  /* Type */
+  --font-ui:
+    'Inter Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui,
+    -apple-system, Roboto, sans-serif;
+  --font-mono:
+    'Cascadia Mono', 'Cascadia Code', Consolas, ui-monospace, 'SF Mono', Menlo,
+    'DejaVu Sans Mono', 'Liberation Mono', monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  /* Spacing, on a 4px base */
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Shape */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 999px;
+
+  /* Sizes */
+  --control-h: 28px;
+  --control-h-sm: 22px;
+  --topbar-h: 44px;
+  --row-h: 28px;
+  --panel-w: 320px;
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Light (the default) */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  /* Background layers: chrome (top bar, sidebar, panels) sits under content */
+  --color-bg: #ffffff;
+  --color-bg-chrome: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f0f2f5;
+  --color-surface-raised: #ffffff;
+  --color-hover: #e9ecf0;
+  --color-pressed: #dfe3e8;
+  --color-selected: #e3ebfb;
+  --color-border: #e1e4e8;
+  --color-border-strong: #7f8790;
+  /* Text */
+  --color-text: #1b1f24;
+  --color-text-secondary: #424a53;
+  --color-text-muted: #5e6670;
+  --color-text-disabled: #8a929c;
+  /* Accent: the one brand colour, used for links, selection and focus */
+  --color-accent: #2453c4;
+  --color-accent-hover: #1c45a8;
+  --color-on-accent: #ffffff;
+  --color-accent-subtle: #e3ebfb;
+  --color-link: #2453c4;
+  --color-focus: #2453c4;
+  /* Semantic */
+  --color-layer-source: #1a7f37;
+  --color-layer-dimension: #8a5a00;
+  --color-layer-intermediate: #127078;
+  --color-layer-output: #b03077;
+  --color-layer-other: #6a727c;
+  --color-pipeline: #7344d0;
+  --color-pipeline-subtle: #f4effd;
+  --color-undocumented: #6a727c;
+  --color-upstream: #1f62d6;
+  --color-downstream: #b4500a;
+  --color-between: #7344d0;
+  --color-warning: #7d5300;
+  --color-warning-subtle: #fdf5d8;
+  --color-danger: #c62a2f;
+  --color-danger-subtle: #fdecec;
+  --color-edge: #7f8790;
+  --color-code-bg: #eef0f3;
+  --color-band-bg: #f8f9fb;
+  --color-band-shared-bg: #fcf8ee;
+  --color-skeleton: #eceef1;
+  /* Elevation: one style, for popovers and menus */
+  --shadow-popover:
+    0 0 0 1px rgb(15 20 30 / 0.08), 0 6px 20px -4px rgb(15 20 30 / 0.18);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #16181c;
+  --color-bg-chrome: #1d2025;
+  --color-surface: #202329;
+  --color-surface-sunken: #121417;
+  --color-surface-raised: #262a31;
+  --color-hover: #2a2e35;
+  --color-pressed: #33373f;
+  --color-selected: #22324f;
+  --color-border: #30343b;
+  --color-border-strong: #6c737d;
+  --color-text: #e6e8eb;
+  --color-text-secondary: #c0c5cc;
+  --color-text-muted: #9aa1ab;
+  --color-text-disabled: #6c737d;
+  --color-accent: #7aa2f7;
+  --color-accent-hover: #93b4f9;
+  --color-on-accent: #111318;
+  --color-accent-subtle: #22324f;
+  --color-link: #8cb0fa;
+  --color-focus: #7aa2f7;
+  --color-layer-source: #4cbe5f;
+  --color-layer-dimension: #d6a33a;
+  --color-layer-intermediate: #3ec2cc;
+  --color-layer-output: #e273b0;
+  --color-layer-other: #8f97a1;
+  --color-pipeline: #ad8cf7;
+  --color-pipeline-subtle: #2a2340;
+  --color-undocumented: #9aa1ab;
+  --color-upstream: #6ea0f7;
+  --color-downstream: #f0914a;
+  --color-between: #ad8cf7;
+  --color-warning: #e0b44f;
+  --color-warning-subtle: #2e2717;
+  --color-danger: #f47a76;
+  --color-danger-subtle: #3a1f20;
+  --color-edge: #6c737d;
+  --color-code-bg: #262a31;
+  --color-band-bg: #1a1d21;
+  --color-band-shared-bg: #1f1d18;
+  --color-skeleton: #262a31;
+  --shadow-popover:
+    0 0 0 1px rgb(255 255 255 / 0.08), 0 8px 24px -4px rgb(0 0 0 / 0.6);
+}

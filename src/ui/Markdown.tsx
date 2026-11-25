@@ -1,3 +1,4 @@
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown, {
   type Components,
@@ -9,6 +10,7 @@ import { rehypeHeadingIds } from './headingIds';
 import { resolveLink } from './links';
 import { renderMermaid, type DiagramResult } from './mermaid';
 import { docHash } from './route';
+import { useTheme } from './theme';
 
 type HastElement = NonNullable<ExtraProps['node']>;
 type HastChild = HastElement['children'][number];
@@ -31,20 +33,27 @@ function mermaidSource(pre: HastElement | undefined): string | null {
 }
 
 function MermaidBlock({ source }: { source: string }) {
+  const { theme } = useTheme();
   const [result, setResult] = useState<DiagramResult | null>(null);
   const [fit, setFit] = useState(false);
+  // On a theme change the old diagram stays up until the new one is drawn
   useEffect(() => {
     let cancelled = false;
-    void renderMermaid(source).then((rendered) => {
+    void renderMermaid(source, theme).then((rendered) => {
       if (!cancelled) setResult(rendered);
     });
     return () => {
       cancelled = true;
     };
-  }, [source]);
+  }, [source, theme]);
 
   if (result === null) {
-    return <div className="mermaid-pending">Rendering diagram…</div>;
+    return (
+      <div className="mermaid-pending" role="status">
+        <span className="spinner" aria-hidden="true" />
+        Rendering diagram…
+      </div>
+    );
   }
   if ('error' in result) {
     return (
@@ -63,13 +72,20 @@ function MermaidBlock({ source }: { source: string }) {
   }
   return (
     <figure className="mermaid">
-      <button
-        type="button"
-        className="diagram-toggle"
-        onClick={() => setFit((value) => !value)}
-      >
-        {fit ? 'Actual size' : 'Fit to width'}
-      </button>
+      <div className="mermaid-toolbar">
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => setFit((value) => !value)}
+        >
+          {fit ? (
+            <Maximize2 size={13} aria-hidden="true" />
+          ) : (
+            <Minimize2 size={13} aria-hidden="true" />
+          )}
+          {fit ? 'Actual size' : 'Fit to width'}
+        </button>
+      </div>
       <div
         className={fit ? 'mermaid-diagram fit' : 'mermaid-diagram'}
         // mermaid's output, sanitised by mermaid itself in strict mode

@@ -28,10 +28,12 @@ export function GraphFind({
   return (
     <div className="graph-find">
       <input
+        id="graph-find-input"
         type="search"
-        className="filter"
+        className="input"
         placeholder="Find a node by name or alias"
         aria-label="Find a node by name or alias"
+        aria-keyshortcuts="/"
         role="combobox"
         aria-expanded={open && hits.length > 0}
         aria-controls="graph-find-results"

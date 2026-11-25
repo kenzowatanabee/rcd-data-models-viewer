@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { GraphResponse } from '../server/api';
 import { fetchDoc, type Loaded } from './api';
 import { headerFields, splitFrontMatter } from './frontMatter';
 import { LineagePanel } from './LineagePanel';
 import { Markdown } from './Markdown';
+import { StateView } from './State';
 import { Summary } from './Summary';
 
 interface Props {
@@ -17,11 +18,32 @@ interface Props {
   landing?: boolean;
 }
 
+function DocSkeleton() {
+  return (
+    <div className="doc-loading" role="status">
+      <span className="visually-hidden">Loading the doc…</span>
+      {[40, 90, 85, 95, 60, 0, 80, 90, 70].map((width, index) =>
+        width === 0 ? (
+          <span key={index} style={{ height: 12 }} />
+        ) : (
+          <span
+            key={index}
+            className="skeleton"
+            style={{ width: `${width}%`, height: index === 0 ? 24 : 14 }}
+          />
+        ),
+      )}
+    </div>
+  );
+}
+
 export function DocView({ file, anchor, data, version, landing }: Props) {
   const [loaded, setLoaded] = useState<{
     file: string;
     result: Loaded<string>;
   } | null>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,7 +64,9 @@ export function DocView({ file, anchor, data, version, landing }: Props) {
   useEffect(() => {
     if (!hasText) return;
     if (anchor === null) {
-      window.scrollTo(0, 0);
+      // Which of the two scrolls depends on the window width
+      scrollRef.current?.scrollTo(0, 0);
+      layoutRef.current?.scrollTo(0, 0);
     } else {
       document.getElementById(anchor)?.scrollIntoView();
     }
@@ -57,33 +81,53 @@ export function DocView({ file, anchor, data, version, landing }: Props) {
   const fields = headerFields(doc?.data ?? null);
 
   return (
-    <div className={node ? 'doc-page with-lineage' : 'doc-page'}>
-      <article className="doc">
-        {landing && data && <Summary data={data} />}
-        <header className="doc-header">
-          <div className="doc-path">{file}</div>
-          {fields.length > 0 && (
-            <dl className="fields">
-              {fields.map(({ label, value }) => (
-                <div key={label}>
-                  <dt>{label}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
+    <div
+      ref={layoutRef}
+      className={node ? 'doc-layout with-lineage' : 'doc-layout'}
+    >
+      <div className="doc-scroll" ref={scrollRef}>
+        <article className="doc">
+          {landing && data && <Summary data={data} />}
+          <header className="doc-header">
+            <div className="doc-path">{file}</div>
+            {fields.length > 0 && (
+              <dl className="fields">
+                {fields.map(({ label, value }) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {doc?.error && (
+              <p className="error">
+                Front-matter could not be read: {doc.error}
+              </p>
+            )}
+          </header>
+          {current === null && <DocSkeleton />}
+          {current?.ok === false && (
+            <StateView
+              kind="error"
+              title={`Could not open ${file}`}
+              detail={current.error}
+              actions={
+                <a className="btn" href="#/">
+                  Go to the start page
+                </a>
+              }
+            >
+              <p>
+                The file may have been moved, renamed or deleted in the docs
+                folder. Pick another doc in the sidebar, or fix the link that
+                led here.
+              </p>
+            </StateView>
           )}
-          {doc?.error && (
-            <p className="error">Front-matter could not be read: {doc.error}</p>
-          )}
-        </header>
-        {current === null && <p className="muted">Loading…</p>}
-        {current?.ok === false && (
-          <p className="error">
-            Could not load {file}: {current.error}
-          </p>
-        )}
-        {doc && <Markdown file={file} body={doc.body} />}
-      </article>
+          {doc && <Markdown file={file} body={doc.body} />}
+        </article>
+      </div>
       {node && data && <LineagePanel graph={data.graph} node={node} />}
     </div>
   );
