@@ -1,0 +1,263 @@
+/* Doc pages: the content column and the lineage panel beside it. The
+   Markdown body keeps its earlier typography, now on the tokens. */
+
+.doc-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.doc-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.doc {
+  max-width: 1100px;
+  min-width: 0;
+  padding: var(--space-6) var(--space-8) var(--space-12);
+  font-size: var(--text-lg);
+}
+
+/* Narrow windows: the lineage panel goes above the doc, in one scroll */
+@media (max-width: 1199px) {
+  .doc-layout.with-lineage {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .doc-layout.with-lineage .doc-scroll {
+    flex: none;
+    overflow: visible;
+  }
+
+  .doc-layout.with-lineage .lineage {
+    order: -1;
+    width: auto;
+    overflow: visible;
+    border-left: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .doc-layout.with-lineage .lineage .panel-header {
+    position: static;
+  }
+}
+
+.doc-header {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.doc-path {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.fields,
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5) var(--space-5);
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+}
+
+.fields div,
+.stats div {
+  display: flex;
+  gap: var(--space-1-5);
+}
+
+.fields dt,
+.stats dt {
+  color: var(--color-text-muted);
+}
+
+.fields dd,
+.stats dd {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary {
+  margin-bottom: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-chrome);
+  font-size: var(--text-md);
+}
+
+.summary p {
+  margin: var(--space-2) 0;
+}
+
+.doc-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-6);
+}
+
+/* Markdown body */
+
+.markdown h1,
+.markdown h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.markdown code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-sm);
+  background: var(--color-code-bg);
+}
+
+.markdown pre {
+  padding: var(--space-3);
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+.table-scroll {
+  margin: 1em 0;
+  overflow-x: auto;
+}
+
+.table-scroll table {
+  border-collapse: collapse;
+  font-size: var(--text-md);
+}
+
+.table-scroll th,
+.table-scroll td {
+  padding: var(--space-1) 10px;
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.table-scroll th {
+  background: var(--color-bg-chrome);
+  text-align: left;
+}
+
+.markdown blockquote {
+  margin: 0;
+  padding: 0 1em;
+  border-left: 4px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.external-link::after {
+  content: ' ↗';
+  font-size: 0.8em;
+}
+
+.inert-link {
+  color: var(--color-text-muted);
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+/* Mermaid */
+
+.mermaid {
+  margin: 1em 0;
+}
+
+.mermaid-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-1);
+}
+
+.mermaid-diagram {
+  overflow-x: auto;
+}
+
+.mermaid-diagram svg {
+  height: auto;
+}
+
+.mermaid-diagram.fit svg {
+  max-width: 100%;
+}
+
+.mermaid-message {
+  white-space: pre-wrap;
+}
+
+.mermaid-pending {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 120px;
+  color: var(--color-text-muted);
+  font-size: var(--text-md);
+}
+
+.mermaid-error {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-subtle);
+}
+
+/* Lineage panel content */
+
+.neighbours li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.kind {
+  flex-shrink: 0;
+  min-width: 4.75em;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.node-external {
+  color: var(--color-text-muted);
+}
+
+.node-external .tag {
+  margin-left: var(--space-1);
+}
+
+.gaps li {
+  margin-bottom: var(--space-1-5);
+  padding: var(--space-1-5) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-subtle);
+}
+
+.gaps code {
+  margin: 0 2px;
+}
+
+.gaps .tag {
+  margin-left: var(--space-1);
+}
+
+.markdown hr {
+  height: 0;
+  margin: var(--space-6) 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+}

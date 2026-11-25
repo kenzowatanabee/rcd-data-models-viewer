@@ -8,11 +8,11 @@ import {
   type Size,
 } from './graphLayout';
 
-/** Must match `.graph-node` in styles.css. */
-const LABEL_FONT =
-  '600 12px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-const CAPTION_FONT =
-  '11px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+/** Must match `.graph-node` in styles/graph.css. */
+export const LABEL_FONT =
+  '600 12px "Inter Variable", "Segoe UI", system-ui, sans-serif';
+export const CAPTION_FONT =
+  '11px "Inter Variable", "Segoe UI", system-ui, sans-serif';
 const LABEL_MAX = 190;
 const LINE = 16;
 const CAPTION_LINE = 14;

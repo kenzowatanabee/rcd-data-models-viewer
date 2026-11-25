@@ -1,0 +1,514 @@
+/* Lineage graph page. */
+
+.graph-page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.graph-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.graph-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.graph-counts {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.graph-find {
+  position: relative;
+  width: 220px;
+}
+
+.graph-find .input {
+  width: 100%;
+}
+
+.graph-find-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  left: 0;
+  max-height: 60vh;
+  margin: 0;
+  padding: var(--space-1);
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-popover);
+  list-style: none;
+}
+
+.graph-find-results li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1-5);
+  min-height: var(--row-h);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.graph-find-results li .nav-label {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.graph-find-results li[aria-selected='true'] {
+  background: var(--color-selected);
+}
+
+.graph-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.graph-canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.graph-canvas .react-flow {
+  --xy-background-color: var(--color-bg);
+  --xy-minimap-background-color: var(--color-bg-chrome);
+  --xy-minimap-mask-background-color: rgb(127 127 127 / 0.12);
+  --xy-controls-button-background-color: var(--color-surface);
+  --xy-controls-button-background-color-hover: var(--color-hover);
+  --xy-controls-button-color: var(--color-text);
+  --xy-controls-button-color-hover: var(--color-text);
+  --xy-controls-button-border-color: var(--color-border);
+  --xy-controls-box-shadow: var(--shadow-popover);
+  --xy-attribution-background-color: transparent;
+}
+
+.graph-canvas .react-flow__controls {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+
+.graph-canvas .react-flow__controls-button:focus-visible {
+  outline-offset: -2px;
+}
+
+.graph-canvas .react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.graph-canvas .react-flow__attribution a {
+  color: var(--color-text-muted);
+}
+
+/* Nodes */
+
+.graph-node {
+  width: 100%;
+  height: 100%;
+  padding: 5px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-left: 5px solid var(--color-layer-other);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.graph-node.layer-source {
+  border-left-color: var(--color-layer-source);
+}
+
+.graph-node.layer-dimension {
+  border-left-color: var(--color-layer-dimension);
+}
+
+.graph-node.layer-intermediate {
+  border-left-color: var(--color-layer-intermediate);
+}
+
+.graph-node.layer-output {
+  border-left-color: var(--color-layer-output);
+}
+
+.graph-node.kind-pipeline {
+  border: 1px solid var(--color-pipeline);
+  border-radius: 14px;
+  background: var(--color-pipeline-subtle);
+}
+
+.graph-node.kind-external {
+  border: 1px dashed var(--color-undocumented);
+  background: var(--color-bg-chrome);
+  color: var(--color-text-muted);
+}
+
+/* Keep in step with LABEL_FONT and CAPTION_FONT in graphNodes.ts */
+.graph-node-label {
+  font:
+    600 12px/16px 'Inter Variable',
+    'Segoe UI',
+    system-ui,
+    sans-serif;
+}
+
+.graph-node-label span {
+  display: block;
+  white-space: nowrap;
+}
+
+.graph-node-caption {
+  color: var(--color-text-muted);
+  font:
+    11px/14px 'Inter Variable',
+    'Segoe UI',
+    system-ui,
+    sans-serif;
+  white-space: nowrap;
+}
+
+.graph-node .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.react-flow__node {
+  transition: opacity var(--duration-fast);
+}
+
+.react-flow__node.is-dim,
+.react-flow__edge.is-dim {
+  opacity: 0.15;
+}
+
+.react-flow__node.is-selected .graph-node {
+  box-shadow: 0 0 0 3px var(--color-accent);
+}
+
+.react-flow__node.is-up .graph-node {
+  box-shadow: 0 0 0 2px var(--color-upstream);
+}
+
+.react-flow__node.is-down .graph-node {
+  box-shadow: 0 0 0 2px var(--color-downstream);
+}
+
+.react-flow__node.is-up.is-down .graph-node {
+  box-shadow:
+    0 0 0 2px var(--color-upstream),
+    0 0 0 4px var(--color-downstream);
+}
+
+.react-flow__node.is-between .graph-node {
+  box-shadow: 0 0 0 2px var(--color-between);
+}
+
+/* Edges */
+
+.graph-edge {
+  fill: none;
+  stroke: var(--color-edge);
+  stroke-width: 1.2;
+}
+
+.graph-edge.redundant {
+  stroke-dasharray: 5 4;
+}
+
+.graph-arrow {
+  fill: var(--color-edge);
+}
+
+.react-flow__edge.is-up .graph-edge,
+.react-flow__edge.is-down .graph-edge,
+.react-flow__edge.is-between .graph-edge {
+  stroke-width: 2;
+}
+
+.react-flow__edge.is-up .graph-edge {
+  stroke: var(--color-upstream);
+}
+
+.react-flow__edge.is-up .graph-arrow {
+  fill: var(--color-upstream);
+}
+
+.react-flow__edge.is-down .graph-edge {
+  stroke: var(--color-downstream);
+}
+
+.react-flow__edge.is-down .graph-arrow {
+  fill: var(--color-downstream);
+}
+
+.react-flow__edge.is-between .graph-edge {
+  stroke: var(--color-between);
+}
+
+.react-flow__edge.is-between .graph-arrow {
+  fill: var(--color-between);
+}
+
+.graph-edge.cross {
+  stroke-opacity: 0.7;
+}
+
+/* Bands: framed groups drawn under the edges and nodes */
+
+.graph-canvas .react-flow__viewport-portal {
+  z-index: -1;
+}
+
+.graph-band {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-band-bg);
+  pointer-events: none;
+}
+
+.graph-band.band-lookups,
+.graph-band.band-feed {
+  border-style: dashed;
+  background: var(--color-band-shared-bg);
+}
+
+.graph-band.band-unlinked {
+  background: none;
+}
+
+.graph-band-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.graph-band-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.graph-band-count {
+  font-weight: var(--weight-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tag on a node that reads shared lookups */
+
+.graph-tag {
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--color-layer-dimension);
+  border-radius: 7px;
+  background: var(--color-bg);
+  color: var(--color-layer-dimension);
+  font: inherit;
+  line-height: 12px;
+  cursor: pointer;
+}
+
+.graph-tag.is-lit,
+.graph-tag[aria-expanded='true'] {
+  background: var(--color-layer-dimension);
+  color: var(--color-bg);
+}
+
+.graph-tag.swatch-tag {
+  margin: 0;
+  font-size: 10px;
+  cursor: default;
+}
+
+.graph-tag-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  padding: var(--space-1-5) 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-popover);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.graph-tag-popover p {
+  margin: 0 0 2px;
+  color: var(--color-text-muted);
+}
+
+.graph-tag-popover ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Minimap: colours by kind and layer */
+
+.react-flow__minimap-node.mm-other {
+  fill: var(--color-layer-other);
+}
+
+.react-flow__minimap-node.mm-source {
+  fill: var(--color-layer-source);
+}
+
+.react-flow__minimap-node.mm-dimension {
+  fill: var(--color-layer-dimension);
+}
+
+.react-flow__minimap-node.mm-intermediate {
+  fill: var(--color-layer-intermediate);
+}
+
+.react-flow__minimap-node.mm-output {
+  fill: var(--color-layer-output);
+}
+
+.react-flow__minimap-node.mm-pipeline {
+  fill: var(--color-pipeline);
+}
+
+.react-flow__minimap-node.mm-external {
+  fill: var(--color-undocumented);
+}
+
+/* Side panel: bands, details and legend */
+
+.graph-bands li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.graph-bands li .count {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.graph-legend {
+  font-size: var(--text-sm);
+}
+
+.graph-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.graph-details-title {
+  overflow-wrap: anywhere;
+}
+
+.graph-details li .tag {
+  margin-left: var(--space-1);
+}
+
+.graph-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.swatch {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 22px;
+  height: 12px;
+  padding: 0;
+}
+
+.swatch-line {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 22px;
+  border-top: 2px solid var(--color-edge);
+  vertical-align: middle;
+}
+
+.swatch-line.up {
+  border-top-color: var(--color-upstream);
+}
+
+.swatch-line.down {
+  border-top-color: var(--color-downstream);
+}
+
+.swatch-line.redundant {
+  border-top: 2px dashed var(--color-edge);
+}
+
+.swatch-line.cross {
+  height: 8px;
+  border-top: none;
+  border-bottom: 2px solid var(--color-edge);
+  border-radius: 0 0 0 16px;
+}
+
+@media (max-width: 1100px) {
+  .graph-side {
+    --panel-w: 260px;
+  }
+
+  .graph-canvas .react-flow__minimap {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .graph-find {
+    width: 100%;
+  }
+
+  .graph-body {
+    flex-direction: column;
+  }
+
+  .graph-side {
+    width: auto;
+    max-height: 40%;
+    border-top: 1px solid var(--color-border);
+    border-left: none;
+  }
+}
+
+/* React Flow's defaults follow the OS scheme; make them follow the theme */
+.graph-canvas .react-flow {
+  color-scheme: inherit;
+}

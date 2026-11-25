@@ -189,7 +189,7 @@ export function BandList({
   onPick: (frame: BandFrame) => void;
 }) {
   return (
-    <section className="graph-bands">
+    <section className="panel-section graph-bands">
       <h3>
         Bands <span className="count">{frames.length}</span>
       </h3>
@@ -213,7 +213,7 @@ export function BandList({
 
 export function Legend() {
   return (
-    <section className="graph-legend">
+    <section className="panel-section graph-legend">
       <h3>Legend</h3>
       <ul>
         {['source', 'dimension', 'intermediate', 'output'].map((layer) => (

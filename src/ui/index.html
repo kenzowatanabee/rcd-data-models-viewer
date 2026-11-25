@@ -5,6 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>RCD data models</title>
+    <script>
+      // Applies the stored theme before first paint, so there is no flash of
+      // the other one. Keep in step with resolveTheme in settings.ts.
+      (function () {
+        var preference = null;
+        try {
+          preference = window.localStorage.getItem('rcd-viewer.theme');
+        } catch (error) {
+          preference = null;
+        }
+        var dark =
+          preference === 'dark' ||
+          (preference !== 'light' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      })();
+    </script>
+    <style>
+      /* Paints the right background while the stylesheets load; the values
+         are --color-bg in styles/tokens.css */
+      html[data-theme='light'] {
+        color-scheme: light;
+        background: #ffffff;
+      }
+      html[data-theme='dark'] {
+        color-scheme: dark;
+        background: #16181c;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

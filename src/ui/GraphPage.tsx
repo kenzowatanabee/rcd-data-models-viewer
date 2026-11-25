@@ -10,6 +10,7 @@ import {
   useReactFlow,
   useViewportStore,
 } from '@xyflow/react';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import type { GraphResponse } from '../server/api';
@@ -31,7 +32,7 @@ import {
   type Depth,
   type VisibleGraph,
 } from './graphModel';
-import { placeGraph } from './graphNodes';
+import { CAPTION_FONT, LABEL_FONT, placeGraph } from './graphNodes';
 import {
   BandFrames,
   BandList,
@@ -44,6 +45,9 @@ import {
   type RoutedEdge,
 } from './GraphParts';
 import { graphHash, type GraphRoute } from './route';
+import { motionDuration } from './settings';
+import { StateView } from './State';
+import { useReducedMotion } from './storage';
 
 /**
  * Selection changes replace the history entry so back does not step
@@ -70,7 +74,33 @@ const FIT_PADDING = '36px';
 interface Props {
   data: GraphResponse | null;
   route: GraphRoute;
-  graphError: string | null;
+}
+
+/**
+ * Node sizes are measured on a canvas, which falls back to another font
+ * until the bundled one has loaded; laying out before that would misfit.
+ */
+function useNodeFontsReady(): boolean {
+  const [ready, setReady] = useState(
+    () =>
+      document.fonts.check(LABEL_FONT) && document.fonts.check(CAPTION_FONT),
+  );
+  useEffect(() => {
+    if (ready) return;
+    let cancelled = false;
+    const done = () => {
+      if (!cancelled) setReady(true);
+    };
+    // Lay out anyway if the font cannot load, rather than never
+    Promise.all([
+      document.fonts.load(LABEL_FONT),
+      document.fonts.load(CAPTION_FONT),
+    ]).then(done, done);
+    return () => {
+      cancelled = true;
+    };
+  }, [ready]);
+  return ready;
 }
 
 export function GraphPage(props: Props) {
@@ -84,9 +114,11 @@ export function GraphPage(props: Props) {
   );
 }
 
-function GraphView({ data, route, graphError }: Props) {
+function GraphView({ data, route }: Props) {
   const { focus, depth, showExternal, showRedundant, lookupWires } = route;
-  const graph = data?.graph ?? null;
+  const fontsReady = useNodeFontsReady();
+  const graph = fontsReady ? (data?.graph ?? null) : null;
+  const reducedMotion = useReducedMotion();
 
   const visible = useMemo(
     () =>
@@ -282,7 +314,7 @@ function GraphView({ data, route, graphError }: Props) {
     if (width === 0 || height === 0 || rect.width === 0) return;
     void setViewport(
       getViewportForBounds(rect, width, height, 0.05, maxZoom, FIT_PADDING),
-      { duration },
+      { duration: motionDuration(duration, reducedMotion) },
     );
   };
   const bounds = placed.layout.bounds;
@@ -305,12 +337,12 @@ function GraphView({ data, route, graphError }: Props) {
     const frame = requestAnimationFrame(() => {
       void setCenter(position.x + box.width / 2, position.y + box.height / 2, {
         zoom: Math.max(getZoom(), 1),
-        duration: 300,
+        duration: motionDuration(300, reducedMotion),
       });
       setCentreOn(null);
     });
     return () => cancelAnimationFrame(frame);
-  }, [centreOn, placed, setCenter, getZoom]);
+  }, [centreOn, placed, setCenter, getZoom, reducedMotion]);
 
   function select(id: string | null, to: string | null = null) {
     setOpenTag(null);
@@ -345,11 +377,8 @@ function GraphView({ data, route, graphError }: Props) {
 
   return (
     <div className="graph-page">
-      <header className="graph-toolbar">
-        <a className="home-link" href="#/">
-          RCD data models
-        </a>
-        <h1>Lineage graph</h1>
+      <div className="graph-toolbar" role="toolbar" aria-label="Graph view">
+        <h1 className="visually-hidden">Lineage graph</h1>
         <GraphFind nodes={graph?.nodes ?? []} onPick={find} />
         <div className="segmented" role="group" aria-label="What to lay out">
           <button
@@ -380,23 +409,27 @@ function GraphView({ data, route, graphError }: Props) {
           </button>
         </div>
         <label className="graph-option">
-          Depth{' '}
-          <select
-            value={depth ?? 'all'}
-            onChange={(event) =>
-              setView({
-                depth: (event.target.value === 'all'
-                  ? null
-                  : Number(event.target.value)) as Depth,
-              })
-            }
-          >
-            <option value="all">all</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-          </select>
+          Depth
+          <span className="select-wrap">
+            <select
+              className="select"
+              value={depth ?? 'all'}
+              onChange={(event) =>
+                setView({
+                  depth: (event.target.value === 'all'
+                    ? null
+                    : Number(event.target.value)) as Depth,
+                })
+              }
+            >
+              <option value="all">all</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+            </select>
+            <ChevronDown size={14} aria-hidden="true" />
+          </span>
         </label>
-        <label className="graph-option">
+        <label className="graph-option checkbox">
           <input
             type="checkbox"
             checked={showExternal}
@@ -407,7 +440,7 @@ function GraphView({ data, route, graphError }: Props) {
           Undocumented names
         </label>
         <label
-          className="graph-option"
+          className="graph-option checkbox"
           title="Dataset to dataset links that a pipeline between the same datasets also declares"
         >
           <input
@@ -420,7 +453,7 @@ function GraphView({ data, route, graphError }: Props) {
           Direct links a pipeline also gives
         </label>
         <label
-          className="graph-option"
+          className="graph-option checkbox"
           title="Draw the links of the shared lookups instead of a tag on each reader"
         >
           <input
@@ -430,26 +463,27 @@ function GraphView({ data, route, graphError }: Props) {
           />
           Wires for shared lookups
         </label>
-        <span className="graph-counts muted" data-testid="graph-counts">
-          {counts}
-        </span>
-      </header>
-      {graphError !== null && (
-        <p className="error">Could not index the docs: {graphError}</p>
-      )}
+        {graph !== null && (
+          <span className="graph-counts" data-testid="graph-counts">
+            {counts}
+          </span>
+        )}
+      </div>
       <div className="graph-body">
         <div className="graph-canvas">
-          {data === null ? (
-            <p className="muted graph-message">Loading the index…</p>
+          {graph === null ? (
+            <StateView kind="loading" centred title="Loading the graph…" />
           ) : focus !== null && focusNode === null ? (
-            <div className="graph-message">
-              <p>
-                <code>{focus}</code> is not in the graph
-                {!showExternal && focus.startsWith('external:')
+            <StateView
+              kind="empty"
+              centred
+              title={`This node is not in the graph${
+                !showExternal && focus.startsWith('external:')
                   ? ' while undocumented names are hidden'
-                  : ''}
-                .
-              </p>
+                  : ''
+              }`}
+              detail={focus}
+            >
               <p>
                 {!showExternal && focus.startsWith('external:') && (
                   <>
@@ -471,7 +505,7 @@ function GraphView({ data, route, graphError }: Props) {
                 </a>
                 .
               </p>
-            </div>
+            </StateView>
           ) : (
             <ReactFlow
               nodes={nodes}
@@ -515,7 +549,7 @@ function GraphView({ data, route, graphError }: Props) {
             </ReactFlow>
           )}
         </div>
-        <div className="graph-side">
+        <aside className="panel graph-side" aria-label="Graph details">
           {selected !== null && lineage !== null && graph !== null ? (
             <GraphDetails
               graph={graph}
@@ -537,17 +571,25 @@ function GraphView({ data, route, graphError }: Props) {
             />
           ) : (
             <>
-              <p className="muted graph-hint">
-                Click a node to trace everything upstream and downstream of it.
-              </p>
-              <BandList
-                frames={frames}
-                onPick={(frame) => fitRect(frame, 1.5, 300)}
-              />
+              <div className="panel-header">
+                <h2>Overview</h2>
+              </div>
+              <div className="panel-section">
+                <p className="panel-hint">
+                  Click a node to trace everything upstream and downstream of
+                  it.
+                </p>
+              </div>
+              {frames.length > 0 && (
+                <BandList
+                  frames={frames}
+                  onPick={(frame) => fitRect(frame, 1.5, 300)}
+                />
+              )}
             </>
           )}
           <Legend />
-        </div>
+        </aside>
       </div>
     </div>
   );

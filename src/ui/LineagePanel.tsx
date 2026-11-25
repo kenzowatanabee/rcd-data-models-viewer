@@ -1,3 +1,5 @@
+import { Waypoints } from 'lucide-react';
+
 import type { Graph, GraphNode } from '../indexer/types';
 import { gapsFor, neighbours, type Neighbour } from './lineage';
 import { docHash, graphHash } from './route';
@@ -25,7 +27,7 @@ function NeighbourList({
   items: Neighbour[];
 }) {
   return (
-    <section>
+    <section className="panel-section">
       <h3>
         {title} <span className="count">{items.length}</span>
       </h3>
@@ -69,20 +71,21 @@ export function LineagePanel({
   const gaps = gapsFor(graph, node.id);
   const gapCount = gaps.oneSided.length + gaps.references.length;
   return (
-    <aside className="lineage">
-      <h2>
-        Lineage{' '}
+    <aside className="panel lineage" aria-labelledby="lineage-title">
+      <div className="panel-header">
+        <h2 id="lineage-title">Lineage</h2>
         <a
-          className="graph-link-small"
+          className="btn btn-sm"
           href={graphHash({ focus: node.id, node: node.id })}
         >
+          <Waypoints size={14} aria-hidden="true" />
           Show in graph
         </a>
-      </h2>
+      </div>
       <NeighbourList title="Upstream" items={upstream} />
       <NeighbourList title="Downstream" items={downstream} />
       {gapCount > 0 && (
-        <section className="gaps">
+        <section className="panel-section gaps">
           <h3>
             Gaps <span className="count">{gapCount}</span>
           </h3>

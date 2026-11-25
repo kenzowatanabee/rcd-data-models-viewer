@@ -30,8 +30,17 @@ stops with Ctrl+C. The path is checked first: if it has no `docs/datasets` and
 
 What it shows:
 
-- **Sidebar:** datasets (with their `layer`), pipelines, and the other Markdown files
-  (`README.md`, `docs/*.md`, `guides/*.md`), with counts. The filter matches names and
+- **Top bar:** the two sections, Docs and Lineage graph ("Docs" returns to the last doc
+  open), the name of the docs folder being viewed (the full path on hover), and the
+  theme: light, dark or the system's. The theme is remembered, and diagrams and the
+  graph switch with it.
+- **Sidebar:** datasets (with their `layer`, as a coloured marker and its name),
+  pipelines, and the other Markdown files (`README.md`, `docs/*.md`, `guides/*.md`),
+  in groups with counts that can be collapsed. `/` focuses the filter, Esc clears it,
+  and the arrow keys move through the list. Drag the sidebar's edge to resize it
+  (or focus the edge and use the arrow keys; double-click resets it), and hide it with
+  the button at the left of the top bar. The width, the hidden state and the collapsed
+  groups are remembered. The filter matches names and
   aliases, ignoring case, accents and the difference between spaces, hyphens and
   underscores (`hierarquia soa` finds `RCD_HIERARQUIA_SOA`).
 - **Doc page:** the Markdown with GitHub-style tables and Mermaid diagrams. The
@@ -42,12 +51,14 @@ What it shows:
   width" shrinks them.
 - **Links:** links to other Markdown files in the repo open in the viewer, `http(s)`
   links open in a new tab, and links to other files or folders are shown greyed out.
-- **Lineage panel** on dataset and pipeline pages: the direct upstream and downstream
+- **Lineage panel** on the right of dataset and pipeline pages (above the doc on
+  narrow windows): the direct upstream and downstream
   docs from the graph (undocumented names are listed but not clickable), plus the gaps
   that involve the doc: one-sided links and ambiguous, unresolved or wrong-kind
   references.
 - **Landing page:** the indexer summary (counts, problems) and the repo `README.md`.
-- **Lineage graph** (`#/graph`, linked from the top of the sidebar): see below.
+- **Lineage graph** (`#/graph`, in the top bar): see below. There, `/` focuses the
+  find box.
 
 The address is `#/doc/<repo-relative path>`, so back, forward and reload work. When a
 Markdown file in the clone changes, the open page and the index refresh by themselves.
