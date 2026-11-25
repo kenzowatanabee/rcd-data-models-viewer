@@ -4,6 +4,7 @@ import type { GraphNode } from '../indexer/types';
 import {
   arrange,
   familyEdges,
+  commonPrefix,
   familyName,
   families,
   lookupsRead,
@@ -183,10 +184,24 @@ describe('families', () => {
   });
 });
 
+describe('commonPrefix', () => {
+  it('needs two segments shared by more than half', () => {
+    expect(commonPrefix(['RCD_TAB_A', 'RCD_TAB_B', 'RCD_X'])).toBe('RCD_TAB_');
+    expect(commonPrefix(['RCD_TAB_A', 'RCD_X_B'])).toBeNull();
+    expect(commonPrefix(['RCD_A', 'RCD_B', 'RCD_C'])).toBeNull();
+  });
+
+  it('prefers the longer prefix when as many names share it', () => {
+    expect(
+      commonPrefix(['RCD_NIELSEN_ST_JOIN_A', 'RCD_NIELSEN_ST_JOIN_B']),
+    ).toBe('RCD_NIELSEN_ST_JOIN_');
+  });
+});
+
 describe('familyName', () => {
   const none = new Set<string>();
 
-  it('prefers the final dataset built from the most of the family', () => {
+  it('names several outputs after the pipeline they all come from', () => {
     const nodes = [
       dataset('s', 'source'),
       pipeline('p1'),
@@ -202,17 +217,99 @@ describe('familyName', () => {
       link('mid', 'p2'),
       link('p2', 'BIG'),
     ];
-    expect(familyName(nodes, edges, none)).toEqual({ name: 'BIG', more: 1 });
+    expect(familyName(nodes, edges, none)).toEqual({
+      name: 'p1',
+      more: 1,
+      detail: '2 outputs',
+    });
+  });
+
+  it('prefers the pipeline that writes the outputs itself', () => {
+    const nodes = [
+      pipeline('ingest'),
+      dataset('raw'),
+      pipeline('RCD_MASTER_FLOW_1'),
+      dataset('A', 'output'),
+      dataset('B', 'output'),
+    ];
+    const edges = [
+      link('ingest', 'raw'),
+      link('raw', 'RCD_MASTER_FLOW_1'),
+      link('RCD_MASTER_FLOW_1', 'A'),
+      link('RCD_MASTER_FLOW_1', 'B'),
+    ];
+    expect(familyName(nodes, edges, none).name).toBe('RCD_MASTER_FLOW_1');
+  });
+
+  it('uses a prefix most outputs share when no pipeline makes them all', () => {
+    const nodes = [
+      dataset('in1'),
+      pipeline('p1'),
+      dataset('a', 'output', 'RCD_TAB_SCORECARD'),
+      dataset('b', 'output', 'RCD_TAB_MKT_RESUMO'),
+      dataset('in2'),
+      pipeline('p2'),
+      dataset('c', 'output', 'RCD_TAB_BASE'),
+      dataset('d', 'output', 'OTHER_OUTPUT'),
+    ];
+    const edges = [
+      link('in1', 'p1'),
+      link('p1', 'a'),
+      link('p1', 'b'),
+      link('in1', 'p2'),
+      link('in2', 'p2'),
+      link('p2', 'c'),
+      link('p2', 'd'),
+    ];
+    expect(familyName(nodes, edges, none)).toEqual({
+      name: 'RCD_TAB_*',
+      more: 3,
+      detail: '4 outputs',
+    });
+  });
+
+  it('falls back to the biggest output, with the others as a count', () => {
+    const nodes = [
+      dataset('in1'),
+      pipeline('p1'),
+      dataset('mid'),
+      pipeline('p2'),
+      dataset('BIG', 'output'),
+      dataset('in2'),
+      pipeline('p3'),
+      dataset('SIDE', 'output'),
+    ];
+    const edges = [
+      link('in1', 'p1'),
+      link('p1', 'mid'),
+      link('mid', 'p2'),
+      link('p2', 'BIG'),
+      link('in2', 'p3'),
+      link('p3', 'SIDE'),
+      link('in2', 'p2'),
+    ];
+    expect(familyName(nodes, edges, none)).toEqual({
+      name: 'BIG',
+      more: 1,
+      detail: '+ 1 more output',
+    });
   });
 
   it('breaks ties with the dataset a pipeline is named after', () => {
     const nodes = [
-      dataset('in'),
+      dataset('in1'),
       pipeline('pf', 'RCD_SOA_NIQ_FLOW'),
-      dataset('a', 'output', 'RCD_#SKU_NIQ'),
       dataset('b', 'output', 'RCD_SOA_NIQ'),
+      dataset('in2'),
+      pipeline('pg', 'OTHER_FLOW'),
+      dataset('a', 'output', 'RCD_#SKU_NIQ'),
     ];
-    const edges = [link('in', 'pf'), link('pf', 'a'), link('pf', 'b')];
+    const edges = [
+      link('in1', 'pf'),
+      link('pf', 'b'),
+      link('in2', 'pg'),
+      link('pg', 'a'),
+    ];
     expect(familyName(nodes, edges, none).name).toBe('RCD_SOA_NIQ');
   });
 
@@ -222,6 +319,7 @@ describe('familyName', () => {
     expect(familyName(nodes, edges, none)).toEqual({
       name: 'legacy',
       more: 0,
+      detail: null,
     });
     expect(familyName([pipeline('only')], [], none).name).toBe('only');
   });

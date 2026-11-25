@@ -36,7 +36,7 @@ function list(value: unknown): string[] {
   return items.map(text).filter((item): item is string => item !== null);
 }
 
-function toneOf(status: string): StatusTone {
+export function toneOf(status: string): StatusTone {
   const lower = status.toLowerCase();
   if (lower === 'draft') return 'draft';
   if (['reviewed', 'verified', 'approved', 'final'].includes(lower)) {

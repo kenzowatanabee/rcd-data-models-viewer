@@ -250,3 +250,34 @@ export function findNodes(
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
     .slice(0, limit);
 }
+
+/**
+ * The nodes of a path in the order the data flows through them; nodes the
+ * path's edges leave unordered keep the order of `ids`.
+ */
+export function pathOrder(path: Between, edges: Link[], ids: string[]) {
+  const links = edges.filter((edge) => path.edges.has(edgeKey(edge)));
+  const rank = new Map(ids.map((id, index) => [id, index]));
+  const waiting = new Map<string, number>();
+  for (const id of path.nodes) waiting.set(id, 0);
+  for (const { to } of links) waiting.set(to, (waiting.get(to) ?? 0) + 1);
+  const byRank = (a: string, b: string) =>
+    (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity) ||
+    (a < b ? -1 : a > b ? 1 : 0);
+  const ready = [...path.nodes].filter((id) => waiting.get(id) === 0);
+  const order: string[] = [];
+  while (ready.length > 0) {
+    ready.sort(byRank);
+    const id = ready.shift() as string;
+    order.push(id);
+    for (const { from, to } of links) {
+      if (from !== id) continue;
+      const left = (waiting.get(to) ?? 0) - 1;
+      waiting.set(to, left);
+      if (left === 0) ready.push(to);
+    }
+  }
+  // A cycle leaves nodes waiting; list them after the rest
+  const rest = [...path.nodes].filter((id) => !order.includes(id));
+  return [...order, ...rest.sort(byRank)];
+}

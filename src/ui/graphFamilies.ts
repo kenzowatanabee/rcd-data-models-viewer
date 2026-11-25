@@ -88,6 +88,8 @@ export interface Family {
   name: string;
   /** How many other final datasets (or other feeds) it has. */
   more: number;
+  /** A quieter second line for the title, such as `3 outputs`. */
+  detail: string | null;
   /** Holds a shared feed. */
   feed: boolean;
 }
@@ -147,7 +149,7 @@ export function families(graph: FamilyGraph, options: FamilyOptions): Family[] {
     const sorted = [...ids].sort();
     const set = new Set(sorted);
     const inside = edges.filter((e) => set.has(e.from) && set.has(e.to));
-    const named = familyName(
+    const named: FamilyName = familyName(
       sorted.map((id) => byId.get(id) as FamilyNode),
       inside,
       options.feeds,
@@ -185,22 +187,113 @@ function reach(id: string, edges: Link[], backwards: boolean): number {
   return seen.size;
 }
 
+export interface FamilyName {
+  name: string;
+  more: number;
+  detail: string | null;
+}
+
+const plural = (n: number, one: string, many = `${one}s`) =>
+  `${n} ${n === 1 ? one : many}`;
+
+/** Everything `id` reaches following `edges` forwards. */
+function reached(id: string, edges: Link[]): Set<string> {
+  const seen = new Set<string>();
+  const queue = [id];
+  while (queue.length > 0) {
+    const at = queue.pop() as string;
+    for (const e of edges) {
+      if (e.from === at && !seen.has(e.to)) {
+        seen.add(e.to);
+        queue.push(e.to);
+      }
+    }
+  }
+  return seen;
+}
+
+/**
+ * The `_`-separated prefix (two segments at least) that most of `names`
+ * share, preferring the longer one on a tie; null unless more than half
+ * of them share it.
+ */
+export function commonPrefix(names: string[]): string | null {
+  const counts = new Map<string, number>();
+  for (const name of names) {
+    const parts = name.split('_');
+    const seen = new Set<string>();
+    // Never the whole name: a prefix must leave something to vary
+    for (let k = 2; k < parts.length; k += 1) {
+      const prefix = `${parts.slice(0, k).join('_')}_`;
+      if (parts[k - 1] === '' || seen.has(prefix)) continue;
+      seen.add(prefix);
+      counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+    }
+  }
+  const best = [...counts].sort(
+    ([a, x], [b, y]) => y - x || b.length - a.length || a.localeCompare(b),
+  )[0];
+  if (best === undefined) return null;
+  const [prefix, count] = best;
+  return count >= 2 && count * 2 > names.length ? prefix : null;
+}
+
 /**
  * Names a family after what it produces, since the docs have no domain
- * field: its feed, if it holds one; otherwise the final dataset (nothing
- * in the family reads it) built from the most of the family, preferring
- * one whose name a pipeline of the family repeats (`X` made by `X_FLOW`).
+ * field. In order:
+ * - its feed, if it holds one;
+ * - with one final dataset (nothing in the family reads it), that dataset;
+ * - with several, the pipeline every one of them comes from (the one
+ *   writing most of them directly, if several qualify);
+ * - else the `_` prefix most of them share, as `PREFIX_*`;
+ * - else the final dataset built from the most of the family, preferring
+ *   one whose name a pipeline repeats (`X` made by `X_FLOW`).
  * With no final dataset, the dataset that feeds the most of it.
+ * `detail` is a quieter second line: how many outputs, or "+ n more".
  */
 export function familyName(
   nodes: FamilyNode[],
   edges: Link[],
   feeds: ReadonlySet<string>,
-): { name: string; more: number } {
+): FamilyName {
   const byName = (a: FamilyNode, b: FamilyNode) =>
     a.name.localeCompare(b.name) || (a.id < b.id ? -1 : 1);
   const own = nodes.filter((n) => feeds.has(n.id)).sort(byName);
-  if (own[0] !== undefined) return { name: own[0].name, more: own.length - 1 };
+  if (own[0] !== undefined) {
+    const more = own.length - 1;
+    return {
+      name: own[0].name,
+      more,
+      detail: more > 0 ? `+ ${plural(more, 'more feed')}` : null,
+    };
+  }
+
+  const datasets = nodes.filter((n) => n.kind !== 'pipeline');
+  const reads = new Set(edges.map((e) => e.from));
+  const finals = datasets.filter((n) => !reads.has(n.id));
+  const more = finals.length > 0 ? finals.length - 1 : 0;
+
+  if (finals.length >= 2) {
+    const outputs = plural(finals.length, 'output');
+    const maker = nodes
+      .filter((n) => n.kind === 'pipeline')
+      .map((n) => ({ n, reach: reached(n.id, edges) }))
+      .filter(({ reach }) => finals.every((f) => reach.has(f.id)))
+      .map(({ n }) => ({
+        n,
+        writes: edges.filter(
+          (e) => e.from === n.id && finals.some((f) => f.id === e.to),
+        ).length,
+      }))
+      .sort((a, b) => b.writes - a.writes || byName(a.n, b.n))[0]?.n;
+    if (maker !== undefined) {
+      return { name: maker.name, more, detail: outputs };
+    }
+    const prefix = commonPrefix(finals.map((n) => n.name));
+    if (prefix !== null) {
+      return { name: `${prefix}*`, more, detail: outputs };
+    }
+  }
 
   const pipelines = nodes
     .filter((n) => n.kind === 'pipeline')
@@ -209,9 +302,6 @@ export function familyName(
     pipelines.some(
       (p) => p !== normaliseName(n.name) && p.startsWith(normaliseName(n.name)),
     );
-  const datasets = nodes.filter((n) => n.kind !== 'pipeline');
-  const reads = new Set(edges.map((e) => e.from));
-  const finals = datasets.filter((n) => !reads.has(n.id));
   const pick = (candidates: FamilyNode[], backwards: boolean) =>
     candidates
       .map((n) => ({ n, size: reach(n.id, edges, backwards) }))
@@ -224,10 +314,11 @@ export function familyName(
 
   const best =
     pick(finals, true) ?? pick(datasets, false) ?? [...nodes].sort(byName)[0];
-  if (best === undefined) return { name: '', more: 0 };
+  if (best === undefined) return { name: '', more: 0, detail: null };
   return {
     name: best.name,
-    more: finals.length > 0 ? finals.length - 1 : 0,
+    more,
+    detail: more > 0 ? `+ ${plural(more, 'more output')}` : null,
   };
 }
 
@@ -239,6 +330,8 @@ export interface Band {
   id: string;
   title: string;
   kind: 'lookups' | 'feed' | 'family' | 'unlinked';
+  /** A quieter second line, such as `3 outputs`; the full title is both. */
+  detail: string | null;
   nodes: string[];
 }
 
@@ -273,17 +366,16 @@ export function arrange(
       id: LOOKUPS_BAND,
       title: 'Shared lookups',
       kind: 'lookups',
+      detail: null,
       nodes: lookups,
     });
   }
   for (const family of families(graph, options)) {
-    const more = family.more > 0 ? ` + ${family.more} more` : '';
     bands.push({
       id: `family:${family.id}`,
-      title: family.feed
-        ? `Shared feed: ${family.name}${more}`
-        : `${family.name}${more}`,
+      title: family.feed ? `Shared feed: ${family.name}` : family.name,
       kind: family.feed ? 'feed' : 'family',
+      detail: family.detail,
       nodes: family.nodes,
     });
   }
@@ -292,6 +384,7 @@ export function arrange(
       id: UNLINKED_BAND,
       title: 'Not linked to anything',
       kind: 'unlinked',
+      detail: null,
       nodes: loose,
     });
   }
