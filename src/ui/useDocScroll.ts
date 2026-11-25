@@ -6,7 +6,7 @@ import {
   type RefObject,
 } from 'react';
 
-import { findTarget } from './Outline';
+import { findTarget } from './OutlinePanel';
 import {
   newScrollKey,
   recalledScroll,
