@@ -1,0 +1,33 @@
+flowchart LR
+    subgraph IN ["POS inputs (unchanged)"]
+        direction TB
+        RET[("18 store-level retailer datasets<br/>RCD_T1_* / T2_* / T3_*")]
+        ATA[("RCD_ATACADÃO")]
+        SCN[("RCD_SCANTECH")]
+        RD[("RCD_T3_RD ESTADO<br/>RCD_T3_RD CLUSTER")]
+    end
+    subgraph REF ["Masters"]
+        direction TB
+        DPR[("DE PARA RD")]
+        STO[("RCD_MASTER_STORES")]
+        PRD[("RCD_MASTER_PRODUCT")]
+        RET2[("RCD_PARA_RETIRAR")]
+    end
+    BASEFLOW["RCD_POS_BASE_FLOW<br/><i>new</i>"]
+    BASE[("RCD_POS_BASE<br/><i>new</i>")]
+    CHK[("RCD_POS_BASE_CHECKS<br/><i>new</i>")]
+    MKT[("RCD_TAB_MKT_P_MASTER_FLOW<br/>RCD_TAB_IQVIA_P_MASTER_FLOW")]
+    F1["RCD_MASTER_FLOW_1<br/><i>slimmed</i>"]
+    F2["RCD_MASTER_FLOW_2<br/><i>slimmed</i>"]
+    F3["RCD_MASTER_FLOW_3<br/><i>slimmed</i>"]
+    F4["RCD_MASTER_FLOW_4<br/><i>slimmed</i>"]
+
+    IN --> BASEFLOW
+    REF --> BASEFLOW
+    BASEFLOW --> BASE
+    BASEFLOW --> CHK
+    BASE --> F1 & F2 & F3 & F4
+    MKT --> F2 & F3 & F4
+
+    classDef new fill:#e7f6ec,stroke:#2e7d4f,color:#123d24;
+    class BASEFLOW,BASE,CHK new;

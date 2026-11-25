@@ -1,0 +1,18 @@
+flowchart TD
+    MT[("BR_NIELSEN_RETAIL_INICIAL_TABLE<br/>Market Track")]
+    DS[("CUR_BR_SALES<br/>NIQ Discover")]
+    GP[("CUR_GLOBAL_PRODUCT")]
+    RD["reach_dist<br/>MAX reach DN / DP per domain, month, market, UPC"]
+    FI["filtered<br/>monthly, year >= 2025, microregion TOTAL,<br/>area / channel normalization,<br/>value and volume x1000"]
+    BA["base<br/>keep the most granular category per SKU"]
+    PR["prepared<br/>DN / DP only when DN > 0"]
+    DO["dados_originais<br/>SUM per YM, area, channel, EAN, market, category"]
+    A8["area_viii_calculada<br/>TOTAL BRASIL - areas I..VII<br/>(not for TOTAL BRASIL, HIPER)"]
+    OUT[("RCD_NIELSEN_MT_JOIN_DN_DP_EAN_NIQ")]
+    DS --> RD
+    GP --> RD
+    MT --> FI
+    RD -->|"left join on year, month, market,<br/>UPC and category → domain"| FI
+    FI --> BA --> PR
+    PR --> DO --> OUT
+    PR --> A8 --> OUT

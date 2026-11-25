@@ -1,0 +1,38 @@
+flowchart TD
+    T1[("RCD_T3_RD ESTADO")]
+    T2[("RCD_T3_RD CLUSTER")]
+    T3["Alter Columns<br/><i>Metadata</i>"]
+    T4["Alter Columns 1<br/><i>Metadata</i>"]
+    T5["Group By<br/><i>GroupBy</i>"]
+    T6["Group By 1<br/><i>GroupBy</i>"]
+    T7["Join Data<br/><i>MergeJoin</i>"]
+    T8["Join Data 1<br/><i>MergeJoin</i>"]
+    T9["Add Formula<br/><i>ExpressionEvaluator</i>"]
+    T10["Add Formula 1<br/><i>ExpressionEvaluator</i>"]
+    T11["Append Rows<br/><i>UnionAll</i>"]
+    T12["Select Columns<br/><i>SelectValues</i>"]
+    T13[("DE PARA RD")]
+    T14["Join Data 2<br/><i>MergeJoin</i>"]
+    T15["Add Formula 2<br/><i>ExpressionEvaluator</i>"]
+    T16["Select Columns 1<br/><i>SelectValues</i>"]
+    T17["Add Formula 3<br/><i>ExpressionEvaluator</i>"]
+    T18[("RCD_RD_ESTADO_CLUSTER_POS<br/><i>output</i>")]
+    T1 --> T3
+    T2 --> T4
+    T3 --> T5
+    T4 --> T6
+    T3 --> T7
+    T5 --> T7
+    T4 --> T8
+    T6 --> T8
+    T7 --> T9
+    T8 --> T10
+    T10 --> T11
+    T9 --> T11
+    T11 --> T12
+    T12 --> T14
+    T13 --> T14
+    T14 --> T15
+    T15 --> T16
+    T16 --> T17
+    T17 --> T18

@@ -2,6 +2,7 @@ import { ArrowUp } from 'lucide-react';
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -11,6 +12,8 @@ import type { GraphResponse } from '../server/api';
 import { fetchDoc, type Loaded } from './api';
 import { DocHeader } from './DocHeader';
 import { docHeader } from './docHeaderModel';
+import { FlowDocsContext } from './FlowDiagram';
+import { docLinker } from './flowTrace';
 import { splitFrontMatter } from './frontMatter';
 import { LineagePanel } from './LineagePanel';
 import { Markdown } from './Markdown';
@@ -154,6 +157,12 @@ export function DocView({ file, anchor, data, version, landing }: Props) {
   });
 
   const node = data?.graph.nodes.find((candidate) => candidate.id === file);
+  // Flowchart nodes that name a doc link to it
+  const graphNodes = data?.graph.nodes;
+  const linkDoc = useMemo(
+    () => (graphNodes === undefined ? null : docLinker(graphNodes)),
+    [graphNodes],
+  );
   const doc = text === null ? null : splitFrontMatter(text);
   const split = doc === null ? null : splitTitle(doc.body);
   const title = split?.title ?? null;
@@ -217,12 +226,14 @@ export function DocView({ file, anchor, data, version, landing }: Props) {
                   frontMatterError={doc.error}
                   titleRef={titleRef}
                 />
-                <Markdown
-                  file={file}
-                  body={split.body}
-                  title={titleText}
-                  onOutline={onOutline}
-                />
+                <FlowDocsContext.Provider value={linkDoc}>
+                  <Markdown
+                    file={file}
+                    body={split.body}
+                    title={titleText}
+                    onOutline={onOutline}
+                  />
+                </FlowDocsContext.Provider>
               </>
             )}
           </article>

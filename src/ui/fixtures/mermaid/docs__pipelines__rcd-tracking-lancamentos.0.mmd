@@ -1,0 +1,31 @@
+flowchart TD
+    T1[("RCD_MASTER_PRODUCT")]
+    T2[("RCD_LAUCH_TRACK")]
+    T3["Filtrar linhas 2<br/><i>Filter</i>"]
+    T4[("RCD_DE_PARA_AREA_CANAL_MT")]
+    T5["Juntar dados 2<br/><i>MergeJoin</i>"]
+    T6["Alterar colunas 1<br/><i>Metadata</i>"]
+    T7["Juntar dados 3<br/><i>MergeJoin</i>"]
+    T8["Agrupar por 1<br/><i>GroupBy</i>"]
+    T9["Juntar dados 4<br/><i>MergeJoin</i>"]
+    T10["DATAS 1<br/><i>ExpressionEvaluator</i>"]
+    T11["Filtrar linhas<br/><i>Filter</i>"]
+    T12["last_5_months<br/><i>Filter</i>"]
+    T13["Selecionar colunas<br/><i>SelectValues</i>"]
+    T14["Remover duplicados<br/><i>Unique</i>"]
+    T15[("demo lançamentos<br/><i>output</i>")]
+    T2 --> T3
+    T3 --> T5
+    T4 --> T5
+    T5 --> T6
+    T6 --> T7
+    T1 --> T7
+    T7 --> T8
+    T7 --> T9
+    T8 --> T9
+    T9 --> T10
+    T10 --> T11
+    T11 --> T12
+    T12 --> T13
+    T13 --> T14
+    T14 --> T15

@@ -1,0 +1,47 @@
+graph TD
+    IN_MT[("RCD_NIELSEN_MT_JOIN_DN_DP_EAN_NIQ")]
+    IN_PROD[("RCD_MASTER_PRODUCT")]
+    IN_EXCL[("RCD_PARA_RETIRAR")]
+    IN_STORES[("RCD_MASTER_STORES")]
+    IN_SORT[("RCD_SORT_REC_NACIONAL")]
+    OUT1[("RCD_TAB_MKT_P_MASTER_FLOW")]
+    OUT2[("RCD_TAB_BASE_MKT")]
+
+    IN_MT --> GB2["Group By 2<br/>YM+AREA+CANAL+EAN+MERCADO_NIELSEN"] --> REP3["Replace Text 3<br/>EAN fix"]
+    IN_PROD --> SEL2["Select Columns 2"] --> DEDUP_P["Remover duplicados<br/>by EAN"]
+    REP3 --> JOIN_P["JOIN TAB PRODUTO<br/>left, EAN"]
+    DEDUP_P --> JOIN_P
+    JOIN_P --> CONST_MKT["CONSTANTE CUSTOMER E BANNER"]
+    IN_EXCL --> CONST_EX["CONSTANTE EXCLUIR"]
+    CONST_MKT --> JOIN_EX["JOIN PARA RETIRAR<br/>left, EAN"]
+    CONST_EX --> JOIN_EX
+    JOIN_EX --> VMAP["Value Mapper<br/>AREA BRASIL → TOTAL BRASIL"]
+    IN_STORES --> PAD["Add Formula<br/>LPAD STORE_COD"]
+    VMAP --> JOIN_L["JOIN TAB LOJAS<br/>left, CUSTOMER+AREA+CANAL"]
+    PAD --> JOIN_L
+    JOIN_L --> DATES["FÓRMULAS DATAS"] --> ALT["Alter Columns"] --> QTR["Adicionar fórmula<br/>QUARTER, EAN"]
+    QTR --> F_AREA["FILTRO AREAS"] --> C_SUB["Add Constants"] --> F_UNIT["FILTRO AREAS 1<br/>SALES_UNIT > 0"]
+    F_UNIT --> F3["Adicionar fórmula 3<br/>LIQUIDOS, PRECO_MEDIO"] --> F2023["FILTRO 2023 DEPOIS"] --> F_EX["FILTRO PARA RETIRAR"]
+    F_EX --> SEL["Select Columns<br/>50 columns"] --> DEDUP2["Remover duplicados 2"] --> QL["ADD QUANT LOJAS"]
+    QL --> OUT1
+    QL --> AGG["AGREGADO NO SUBCATEGORY"] --> TOT["Adicionar constantes<br/>TOTAL SUPPLIER/BRAND"]
+    QL --> APP["Anexar linhas"]
+    TOT --> APP
+    APP --> PM["Adicionar fórmula 1<br/>PRECO_MEDIO"] --> FU["Filtrar linhas 1<br/>SALES_UNIT > 0"]
+    IN_SORT --> S3["Select Columns 3"] --> UNP["Dynamic Unpivot"] --> A1["Alter Columns 1"] --> S5["Select Columns 5"]
+    FU --> JR["Join Data<br/>left, EAN+CANAL"]
+    S5 --> JR
+    JR --> RT["Replace Text<br/>TOTAL RE → TOTAL BRASIL"] --> D1["Remover duplicados 1"] --> SC["Selecionar colunas"]
+    SC --> F4["Filtrar linhas 4<br/>SUPPLIER ≠ TOTAL SUPPLIER"] --> GB["Agrupar por"]
+    SC --> JT["Juntar dados<br/>left"]
+    GB --> JT
+    JT --> SOM["Adicionar fórmula 4<br/>SOM_*"] --> SC1["Selecionar colunas 1"] --> OUT2
+    F_EX --> A_NUL["APP - EAN SEM NULO"] --> A_GR["APP - GRAO EAN<br/>YM+AREA+CANAL+EAN"]
+    DEDUP_P --> A_M["APP - MASTER EAN SEM ZEROS → MATCH → UNICO → COLUNAS"]
+    S5 --> A_SR["APP - SORT REC UNICO<br/>EAN+CANAL"]
+    A_GR --> A_JM["APP - JOIN MASTER<br/>left, EAN"]
+    A_M --> A_JM
+    A_JM --> A_JS["APP - JOIN SORT REC<br/>left, EAN+CANAL"]
+    A_SR --> A_JS
+    A_JS --> A_CL["APP - CLASSIFICACAO"] --> A_RN["APP - REGRA NIELSEN"] --> A_SN["APP - SUB_CATEGORY NIELSEN"] --> A_CF["APP - COLUNAS FINAIS<br/>30 columns"]
+    A_CF --> OUT3[("RCD_TAB_BASE_MKT_APP")]

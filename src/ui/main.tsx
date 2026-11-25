@@ -4,6 +4,7 @@ import './styles/base.css';
 import './styles/layout.css';
 import './styles/doc.css';
 import './styles/graph.css';
+import './styles/flow.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

@@ -1,0 +1,48 @@
+flowchart TD
+    T1[("RCD_DH_GPA_DEPARA_PLU_EAN")]
+    T2["Remover duplicados PLU<br/><i>Unique</i>"]
+    T3[("RCD_T2_DH_GPA_2021_202307")]
+    T4["Adicionar fórmula<br/><i>ExpressionEvaluator</i>"]
+    T5["Selecionar colunas 3<br/><i>SelectValues</i>"]
+    T6["Juntar dados<br/><i>MergeJoin</i>"]
+    T7[("RCD_GPA_FINAL")]
+    T8["Selecionar colunas 2<br/><i>SelectValues</i>"]
+    T9["Filtrar linhas<br/><i>Filter</i>"]
+    T10["Adicionar fórmula 2<br/><i>ExpressionEvaluator</i>"]
+    T11["Selecionar colunas 4<br/><i>SelectValues</i>"]
+    T12[("RCD_T2_DH_GPA_202308_202312")]
+    T13["Adicionar fórmula 1<br/><i>ExpressionEvaluator</i>"]
+    T14["Selecionar colunas 1<br/><i>SelectValues</i>"]
+    T15["Anexar linhas<br/><i>UnionAll</i>"]
+    T16["YYYYWW e Zero a esquerda Store_code<br/><i>ExpressionEvaluator</i>"]
+    T17[("RCD_DH_GPA_LOJA")]
+    T18["zero a esq Store_code<br/><i>ExpressionEvaluator</i>"]
+    T19["Remover duplicados<br/><i>Unique</i>"]
+    T20["Juntar dados store_code - region<br/><i>MergeJoin</i>"]
+    T21["Alterar colunas<br/><i>Metadata</i>"]
+    T22["Selecionar colunas<br/><i>SelectValues</i>"]
+    T23["Zero esq store_code, retirar zero esq prod_code<br/><i>ExpressionEvaluator</i>"]
+    T24[("RCD_GPA_COMPLETO_MENSAL<br/><i>output</i>")]
+    T1 --> T2
+    T3 --> T4
+    T4 --> T5
+    T5 --> T6
+    T2 --> T6
+    T7 --> T8
+    T8 --> T9
+    T9 --> T10
+    T10 --> T11
+    T12 --> T13
+    T13 --> T14
+    T6 --> T15
+    T11 --> T15
+    T14 --> T15
+    T15 --> T16
+    T17 --> T18
+    T18 --> T19
+    T16 --> T20
+    T19 --> T20
+    T20 --> T21
+    T21 --> T22
+    T22 --> T23
+    T23 --> T24

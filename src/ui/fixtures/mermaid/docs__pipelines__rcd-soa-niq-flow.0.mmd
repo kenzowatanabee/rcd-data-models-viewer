@@ -1,0 +1,53 @@
+flowchart TD
+    T1[("RCD_SOA_NIQ 1")]
+    T2["#SKU/ LINHAS E REONMEIA AS SUBCATS 1<br/><i>ExpressionEvaluator</i>"]
+    T3["FORMATA DATA DO UPLOAD<br/><i>ExpressionEvaluator</i>"]
+    T4["SELECIONA A MAIOR DATA UPLOAD<br/><i>GroupBy</i>"]
+    T5["TRAZ A MAIOR DATA UPLOAD<br/><i>MergeJoin</i>"]
+    T6["SOMA DAS DN TOTAL CATEGORIA<br/><i>GroupBy</i>"]
+    T7["ADD TOTAL MARCA E TOTAL FABRICANTES<br/><i>Constant</i>"]
+    T8["RENOMEIA DN<br/><i>Metadata</i>"]
+    T9["TRAZ A SOMA DAS DNs POR SUBCAT<br/><i>UnionAll</i>"]
+    T10["#SKU/ LINHAS E REONMEIA AS SUBCATS<br/><i>ExpressionEvaluator</i>"]
+    T11[("RCD_HIERARQUIA_SOA")]
+    T12["TRAZ A HIERAQUIA<br/><i>MergeJoin</i>"]
+    T13["SET PERIODOS, HIERARQUIA CANAL<br/><i>ExpressionEvaluator</i>"]
+    T14["Filtrar linhas<br/><i>Filter</i>"]
+    T15[("RCD_#SKU_NIQ<br/><i>output</i>")]
+    T16["#TOTAL SKU<br/><i>ExpressionEvaluator</i>"]
+    T17["TRAZ O TOTA DE SKUS/SUBCAT<br/><i>MergeJoin</i>"]
+    T18["Filtrar linhas 4<br/><i>Filter</i>"]
+    T19["Adicionar fórmula 1<br/><i>ExpressionEvaluator</i>"]
+    T20["Anexar linhas<br/><i>UnionAll</i>"]
+    T21["TRAZ A HIERAQUIA 2<br/><i>MergeJoin</i>"]
+    T22["SET PERIODOS, HIERARQUIA CANAL, SOA<br/><i>ExpressionEvaluator</i>"]
+    T23["Filtrar linhas 1<br/><i>Filter</i>"]
+    T24[("RCD_SOA_NIQ<br/><i>output</i>")]
+    T1 --> T2
+    T2 --> T3
+    T3 --> T4
+    T3 --> T5
+    T4 --> T5
+    T5 --> T6
+    T6 --> T7
+    T5 --> T8
+    T7 --> T9
+    T8 --> T9
+    T9 --> T10
+    T10 --> T12
+    T11 --> T12
+    T12 --> T13
+    T13 --> T14
+    T14 --> T15
+    T7 --> T16
+    T10 --> T17
+    T16 --> T17
+    T17 --> T18
+    T18 --> T19
+    T17 --> T20
+    T19 --> T20
+    T20 --> T21
+    T11 --> T21
+    T21 --> T22
+    T22 --> T23
+    T23 --> T24

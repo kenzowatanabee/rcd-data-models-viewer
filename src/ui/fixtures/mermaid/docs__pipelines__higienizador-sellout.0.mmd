@@ -1,0 +1,11 @@
+flowchart TD
+    RAW[("Raw POS files<br/>(one layout per retailer)")]
+    PY["higienizador_sellout<br/>(Python)"]
+    T1[("Torre T1 datasets<br/>Wholesale & Supermarkets")]
+    T2[("Torre T2 datasets<br/>Regional chains")]
+    T3[("Torre T3 datasets<br/>Pharma / Drogarias")]
+
+    RAW --> PY
+    PY -->|"customer_pos_data schema"| T1
+    PY -->|"customer_pos_data schema"| T2
+    PY -->|"customer_pos_data schema"| T3

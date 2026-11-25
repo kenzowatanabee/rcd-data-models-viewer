@@ -1,0 +1,7 @@
+flowchart TD
+    ST[("BR_NIELSEN_SCANTRACK_TABLE")]
+    DO["DadosOriginais<br/>last month, no COLGATE / SORRISO / ELMEX,<br/>VALUE > 0, no grouped areas, no AREA VIII"]
+    A8["AreaVIIICalculada<br/>BRASIL - areas I..VII, no HIPER"]
+    OUT[("RCD_NIELSEN_ST")]
+    ST --> DO --> OUT
+    ST --> A8 --> OUT

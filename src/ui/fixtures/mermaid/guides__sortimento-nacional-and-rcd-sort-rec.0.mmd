@@ -1,0 +1,17 @@
+flowchart LR
+    NAC[("RCD_SORT_REC_NACIONAL<br/>pivoted, 1 row per EAN<br/>15 channel columns")]
+    HIS[("RCD_SORT_REC (sheet)<br/>pivoted, 1 row per EAN × quarter<br/>16 channel columns")]
+    PRD[("RCD_MASTER_PRODUCT")]
+    subgraph FLOW ["Dataflow RCD_SORT_REC (8328), daily 05:00 BRT"]
+        U1["Unpivot current<br/>CANAL ATUAL / SORT REC ATUAL"]
+        U2["Unpivot history<br/>CANAL / SORT REC"]
+        J["Full outer join<br/>EAN + channel"]
+        S["STATUS:<br/>MANTIDO / NOVO / RETIRADO"]
+        P["+ CP product attributes"]
+    end
+    OUT1[("SORTIMENTO_NACIONAL_UNPIVOTADO<br/>1 row per EAN × channel")]
+    OUT2[("RCD_SORT_REC (output, long)<br/>EAN × channel × history quarter")]
+    NAC --> U1 --> OUT1
+    U1 --> J
+    HIS --> U2 --> J --> S --> P --> OUT2
+    PRD --> P

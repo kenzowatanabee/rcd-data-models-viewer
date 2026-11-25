@@ -61,11 +61,11 @@ What it shows:
   right-aligned. Tables with more than 12 rows get a filter box that hides rows not
   matching (the same matching as the sidebar filter) and shows "n of m rows".
 - **Code blocks** have a copy button; `sql` blocks are coloured by a small built-in
-  tokenizer. **Diagrams** sit in a frame with "Fit to width" / "Actual size" (diagrams
-  only slightly wider than the column start fitted) and "Open larger": a full-window
-  view where dragging or the arrow keys pan, the wheel or + and − zoom, 0 fits, and Esc
-  closes. Diagrams take their colours from the app's theme. A diagram that does not
-  parse shows the error and its source.
+  tokenizer. **Diagrams** (` ```mermaid ` blocks) sit in a frame with a toolbar and
+  "Open larger": a full-window view where dragging or the arrow keys pan, the wheel or
+  - and − zoom, 0 fits, and Esc closes. Flowcharts are drawn by the viewer itself; other
+    diagrams by the Mermaid library (see [Diagrams](#diagrams) below). A diagram that does
+    not parse shows the error and its source.
 - **Raw HTML:** only an allowlist is rendered: `details` (with `open`), `summary`, `br`,
   `i`, `b`, `sub`, `sup`, `kbd`, and `a` with an `id` and nothing else (link targets
   such as `<a id="dn"></a>` in the glossary; the id gets a `user-content-` prefix and
@@ -96,6 +96,70 @@ Markdown file in the clone changes, the open page and the index refresh by thems
 The server only reads Markdown files inside the clone (`GET /api/graph`,
 `GET /api/doc?file=<repo-relative path>`); other paths, `.git` and anything outside the
 clone are refused.
+
+### Diagrams
+
+`flowchart` and `graph` diagrams are drawn by the viewer's own renderer: a parser for
+the flowchart syntax the docs use, a layout with dagre and plain SVG. Everything else
+(`erDiagram`, `sequenceDiagram` and any other type) is drawn by the Mermaid library,
+which is only loaded on pages that need it.
+
+**Supported syntax:** `flowchart` / `graph` with `TB`, `TD`, `BT`, `LR` or `RL`; node
+shapes `[ ]`, `( )`, `([ ])`, `[[ ]]`, `[( )]`, `(( ))`, `((( )))`, `{ }`, `{{ }}`,
+`[/ /]`, `[\ \]`, `[/ \]`, `[\ /]` and `> ]`; quoted and unquoted labels with `<br>`,
+`<i>`/`<em>`, `<b>`/`<strong>`, HTML entities and Mermaid's `#quot;`-style codes; links
+`-->`, `---`, `-.->`, `-.-`, `==>`, `===` of any length, with `x`, `o` and two-ended
+(`<-->`) heads, labels as `-->|text|` or `-- text -->`, chains (`A --> B --> C`) and `&`;
+subgraphs with an id and title, nesting and `direction`, and links to or from a
+subgraph; `classDef`, `class`, `:::`, `style`, `linkStyle` (numbers or `default`);
+`%%` comments, `%%{init}%%` directives (ignored) and `;`.
+
+**When Mermaid draws a flowchart instead:** the viewer draws a flowchart only if its
+parser reads every line of it and it can draw everything it uses. A line it does not
+read (`click`, `@{ }` shapes, `~~~` links, Markdown strings, a `%%` comment after a
+statement, an id with a hyphen, and anything else outside the list above), a style
+property other than `fill`, `stroke`, `color`, `stroke-width`, `stroke-dasharray`,
+`font-weight` and `font-style`, a colour other than hex, `rgb()` or a basic name, or a
+link between a subgraph and its own content all hand the diagram to Mermaid. A note in
+the toolbar ("Mermaid", with the reason on hover) says so. A flowchart Mermaid cannot
+parse either shows Mermaid's error, with the viewer's reason under it.
+
+**Viewer / Mermaid:** a diagram the viewer draws has a switch in its toolbar to see
+Mermaid's drawing of it instead; the choice is not remembered.
+
+**Reading a drawing:**
+
+- In the doc it is fitted to the column when that keeps the text at 64% or more;
+  otherwise it is shown at 72% and the frame scrolls sideways (drag it, or use a
+  trackpad or Shift + wheel). The wheel scrolls the page; Ctrl/⌘ + wheel and the − and +
+  buttons zoom; "Fit width" fits the column whatever the size.
+- Clicking a node lights up everything upstream (blue) and downstream (orange) of it
+  and dims the rest; clicking empty space clears it. A link from a subgraph counts as a
+  link from each node in it.
+- A node whose first label line is the `name` or an alias of exactly one dataset or
+  pipeline doc (ignoring case, accents and separators, as the indexer does) links to
+  it: "Open doc" when it is selected, or double-click. A name two docs share links
+  nowhere.
+- "Open larger" adds a find box: type part of a label, Enter selects the node and
+  centres the view on it.
+
+**Layout:** a subgraph that no link crosses (links to the subgraph itself are fine) is
+laid out on its own, in its `direction`, and placed as one block; if nothing inside it
+is linked, its nodes wrap into rows (or columns, for `LR`), so a list of 19 inputs is a
+grid rather than one long row. Other subgraphs are frames around their nodes in the
+main layout, and their `direction` is ignored, as Mermaid also does. Labels wider than
+about 260 px wrap at spaces.
+
+**Colours:** unstyled nodes, frames and links use the theme's colours. Colours from
+`classDef`, `style` and `linkStyle` are kept as written in the light theme. In the dark
+theme each is turned around in lightness with its hue kept (in OKLab): pale fills become
+dark tints, dark text becomes light, and strokes become light enough to see. Either way,
+text is kept at 4.5:1 against its fill and strokes at 3:1 against the page, adjusting
+the lightness only when needed.
+
+Drawings are laid out only when they come near the screen (or their `<details>` opens),
+and are cached by source, so a live refresh that leaves a diagram unchanged redraws it
+at once. The renderer uses SVG elements only: no inline `<style>` and no HTML strings.
 
 ### Lineage graph
 

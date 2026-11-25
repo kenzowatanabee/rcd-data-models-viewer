@@ -1,0 +1,12 @@
+flowchart TD
+    T1[("RCD_NIELSEN_ST")]
+    T2[("RCD_MASTER_PRODUCT")]
+    T3["Join Data<br/><i>MergeJoin</i>"]
+    T4["Select Columns<br/><i>SelectValues</i>"]
+    T5["Group By<br/><i>GroupBy</i>"]
+    T6[("RCD_VARIANT_NIELSEN<br/><i>output</i>")]
+    T1 --> T3
+    T2 --> T3
+    T3 --> T4
+    T4 --> T5
+    T5 --> T6

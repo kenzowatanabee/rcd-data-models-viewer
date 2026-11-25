@@ -1,0 +1,34 @@
+flowchart LR
+    POS[("Customer POS<br/>18 retailers + RD (2) + Scanntech")]
+    ATA[("Atacadão<br/>DataShopper → RCD_ATACADÃO")]
+    CAR[("Carrefour<br/>DataShopper → RCD_GRUPO_CARREFOUR")]
+    MKT[("Nielsen market<br/>RCD_TAB_MKT_P_MASTER_FLOW")]
+    IQVIA[("IQVIA market<br/>RCD_TAB_IQVIA_P_MASTER_FLOW")]
+    DIMS[("Masters & lookups")]
+    F1["RCD_MASTER_FLOW_1"]
+    F2["RCD_MASTER_FLOW_2"]
+    F3["RCD_MASTER_FLOW_3"]
+    F4["RCD_MASTER_FLOW_4<br/><i>paused since 2026-11-13 (Q53)</i>"]
+    O1[("STORE_CLASSIFICATION<br/>CONFERENCE<br/>DOT_ANALISE_CUSTOMER")]
+    O2[("MKT_CUSTOMER_RESUMO<br/>PROD_CLASSIFICATION")]
+    O3[("SCORECARD")]
+    O4[("MKT_CUSTOMER_COMPLETO")]
+    CMP["RCD_ASSORTMENT_EXECUTION_COMPLIANCE"]
+    O5[("ASSORTMENT_COMPLIANCE_TABLE")]
+
+    POS --> F1 & F2 & F3
+    POS -->|"all but Savegnago (Q38)"| F4
+    DIMS --> F1 & F2 & F3 & F4
+    ATA --> F1 & F2 & F4
+    CAR -. "disabled 2026-10-26" .-> F1 & F2 & F4
+    MKT --> F2 & F3 & F4
+    IQVIA --> F2 & F4
+    F1 --> O1
+    F2 --> O2
+    F3 --> O3
+    F4 --> O4
+    PB[("RCD_POS_BASE<br/>cleaned POS, daily 05:00")]
+    POS --> PB
+    ATA --> PB
+    DIMS --> PB
+    PB --> CMP --> O5

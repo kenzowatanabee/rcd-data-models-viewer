@@ -1,7 +1,8 @@
 import type { Graph, GraphEdge, GraphNode } from '../indexer/types';
 import { fold, matchesFilter } from './filter';
 
-type Nodes = Pick<Graph, 'nodes'>['nodes'];
+/** Tracing needs only each node's id and kind. */
+type Nodes = readonly Pick<GraphNode, 'id' | 'kind'>[];
 type Link = Pick<GraphEdge, 'from' | 'to'>;
 
 export const edgeKey = (edge: Link): string => `${edge.from}\n${edge.to}`;

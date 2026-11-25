@@ -7,7 +7,7 @@ import ReactMarkdown, {
 
 import { CodeBlock } from './CodeBlock';
 import { useCopy } from './CopyButton';
-import { MermaidBlock } from './Diagram';
+import { DiagramBlock } from './Diagram';
 import { hastText, type HastNode } from './headingIds';
 import { resolveLink } from './links';
 import { markdownPlugins } from './markdownPipeline';
@@ -135,7 +135,7 @@ function components(file: string): Components {
       const code = codeOf(node);
       if (code === null) return <pre>{children}</pre>;
       if (code.language === 'mermaid') {
-        return <MermaidBlock source={code.source} />;
+        return <DiagramBlock source={code.source} />;
       }
       return <CodeBlock source={code.source} language={code.language} />;
     },

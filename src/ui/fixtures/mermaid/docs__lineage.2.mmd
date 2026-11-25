@@ -1,0 +1,44 @@
+flowchart LR
+    RCD_SOA_NIQ_1[("RCD_SOA_NIQ (raw input)<br/>fade32d6")]
+    RCD_HIERARQUIA_SOA[("RCD_HIERARQUIA_SOA")]
+    RCD_SOA_NIQ_FLOW["RCD_SOA_NIQ_FLOW<br/><i>8437</i>"]
+    RCD_SOA_NIQ[("RCD_SOA_NIQ")]
+    RCD_SKU_NIQ[("RCD_#SKU_NIQ")]
+    RCD_SOA_NIQ_1 --> RCD_SOA_NIQ_FLOW
+    RCD_HIERARQUIA_SOA --> RCD_SOA_NIQ_FLOW
+    RCD_SOA_NIQ_FLOW --> RCD_SOA_NIQ
+    RCD_SOA_NIQ_FLOW --> RCD_SKU_NIQ
+
+    RCD_MASTER_DISTRIBUTION_NIQ[("RCD_MASTER-DISTRIBUTION_NIQ")]
+    RCD_MASTER_SHARE_NIQ[("RCD_MASTER_SHARE_NIQ")]
+    RCD_HIERARQUIA_DISTRIBUICAO[("RCD_HIERARQUIA_DISTRIBUIÇÃO")]
+    RCD_DISTRIBUICAO_NIQ_MASTER_FLOW["RCD_DISTRIBUIÇÃO_NIQ_MASTER_FLOW<br/><i>8386</i>"]
+    RCD_DISTRIBUICAO_NIQ_MASTER[("RCD_DISTRIBUIÇÃO_NIQ_MASTER")]
+    RCD_MASTER_DISTRIBUTION_NIQ --> RCD_DISTRIBUICAO_NIQ_MASTER_FLOW
+    RCD_MASTER_SHARE_NIQ --> RCD_DISTRIBUICAO_NIQ_MASTER_FLOW
+    RCD_HIERARQUIA_DISTRIBUICAO --> RCD_DISTRIBUICAO_NIQ_MASTER_FLOW
+    RCD_DISTRIBUICAO_NIQ_MASTER_FLOW --> RCD_DISTRIBUICAO_NIQ_MASTER
+
+    RCD_LAUCH_TRACK[("RCD_LAUCH_TRACK<br/>Nielsen launch tracking")]
+    RCD_DE_PARA_AREA_CANAL_MT[("RCD_DE_PARA_AREA_CANAL_MT")]
+    RCD_MASTER_PRODUCT_2[("RCD_MASTER_PRODUCT<br/><i>second copy f5e11ab5 (Q41)</i>")]
+    RCD_Tracking_Lancamentos["RCD_Tracking_Lançamentos<br/><i>10638, manual</i>"]
+    demo_lancamentos[("demo lançamentos")]
+    RCD_LAUCH_TRACK --> RCD_Tracking_Lancamentos
+    RCD_DE_PARA_AREA_CANAL_MT --> RCD_Tracking_Lancamentos
+    RCD_MASTER_PRODUCT_2 --> RCD_Tracking_Lancamentos
+    RCD_Tracking_Lancamentos --> demo_lancamentos
+
+    %% disabled branch of RCD_SOA_NIQ_FLOW (tiles still on the canvas)
+    RCD_SKU_EXECU_X_SKU_REC_NIQ[("RCD_#SKU_EXECU_X_#SKU_REC_NIQ<br/><i>last written 2026-09-04</i>")]
+    RCD_DE_PARA_SUB_BRAND_NIQ_MASTER[("RCD_DE_PARA_SUB_BRAND_NIQ_MASTER")]
+    RCD_SORT_REC_NACIONAL_3[("RCD_SORT_REC_NACIONAL")]
+    RCD_DE_PARA_SUB_BRAND_NIQ_MASTER -. "disabled input" .-> RCD_SOA_NIQ_FLOW
+    RCD_MASTER_PRODUCT_2 -. "disabled input" .-> RCD_SOA_NIQ_FLOW
+    RCD_SORT_REC_NACIONAL_3 -. "disabled input" .-> RCD_SOA_NIQ_FLOW
+    RCD_SOA_NIQ_FLOW -. "disabled branch" .-> RCD_SKU_EXECU_X_SKU_REC_NIQ
+
+    classDef pipeline fill:#e8f0fe,stroke:#4a6fa5,color:#1a2b45;
+    class RCD_SOA_NIQ_FLOW,RCD_DISTRIBUICAO_NIQ_MASTER_FLOW,RCD_Tracking_Lancamentos pipeline;
+    %% 12-15: RCD_SOA_NIQ_FLOW's disabled tiles (counted from 0 in written order)
+    linkStyle 12,13,14,15 stroke:#c0392b,stroke-dasharray:6 4;

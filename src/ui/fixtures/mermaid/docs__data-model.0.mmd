@@ -1,0 +1,158 @@
+erDiagram
+    PRODUCT_DIMENSION |o--o{ CUSTOMER_POS_DATA : "ean"
+    STORE_DIMENSION |o--o{ CUSTOMER_POS_DATA : "customer + banner + store_cod"
+    PRODUCT_DIMENSION |o--o{ RCD_NIELSEN_MT_JOIN_DN_DP_EAN_NIQ : "ean (supplier, brand from here)"
+    PRODUCT_DIMENSION |o--o{ RCD_NIELSEN_ST : "ean"
+    PRODUCT_DIMENSION |o--o{ RCD_DN_DP_EAN_NIQ : "ean"
+    PRODUCT_DIMENSION |o--o{ RCD_TAB_MKT_P_MASTER_FLOW : "ean"
+    STORE_DIMENSION |o--o{ RCD_TAB_MKT_P_MASTER_FLOW : "customer=MKT + area + canal"
+    PRODUCT_DIMENSION |o--o{ RCD_TAB_BASE_MKT : "ean"
+    RCD_SORT_REC_NACIONAL |o--o{ RCD_TAB_BASE_MKT : "ean + canal"
+    PRODUCT_DIMENSION |o--o{ RCD_TAB_BASE_MKT_APP : "ean, both zero-stripped (master_match S/N)"
+    RCD_SORT_REC_NACIONAL |o--o{ RCD_TAB_BASE_MKT_APP : "ean + canal (deduped first)"
+    PRODUCT_DIMENSION |o--o{ RCD_TAB_MKT_CUSTOMER_COMPLETO : "ean"
+    STORE_DIMENSION |o--o{ RCD_TAB_MKT_CUSTOMER_COMPLETO : "customer + banner + store_cod"
+    PRODUCT_DIMENSION |o--o{ RCD_TAB_MKT_CUSTOMER_RESUMO : "ean"
+    STORE_DIMENSION |o--o{ RCD_TAB_MKT_CUSTOMER_RESUMO : "customer + banner + store_cod"
+    RCD_SORT_REC |o--o{ RCD_TAB_MKT_CUSTOMER_RESUMO : "ean + quarter + canal"
+    DE_PARA_RD }o--o| PRODUCT_DIMENSION : "scan_type_code = ean"
+    PRODUCT_DIMENSION |o--o{ RCD_DOT_ANALISE_CUSTOMER : "ean"
+    STORE_DIMENSION |o--o{ RCD_DOT_ANALISE_CUSTOMER : "customer + banner + store_cod"
+    STORE_DIMENSION |o--o{ RCD_TAB_CONFERENCE : "customer + banner + store_cod"
+    PRODUCT_DIMENSION |o--o{ RCD_TAB_SCORECARD : "ean"
+    STORE_DIMENSION |o--o{ RCD_TAB_SCORECARD : "customer + banner + store_cod"
+    RCD_SORT_REC_NACIONAL |o--o{ RCD_TAB_MKT_CUSTOMER_COMPLETO : "ean + canal (full outer)"
+    RCD_LANCAMENTOS_CP |o--o{ RCD_TAB_MKT_CUSTOMER_COMPLETO : "ean + quarter"
+    STORE_DIMENSION |o--o{ RCD_ASSORTMENT_COMPLIANCE_TABLE : "customer + banner + cluster_customer + cluster_size"
+    PRODUCT_DIMENSION |o--o{ RCD_ASSORTMENT_COMPLIANCE_TABLE : "ean"
+    RCD_ASSORTMENT_RECOMMENDATIONS |o--o{ RCD_ASSORTMENT_COMPLIANCE_TABLE : "customer + banner + cluster + size + ean + exec_date"
+    STORE_DIMENSION |o--o{ RCD_POS_BASE : "customer + banner + store_cod (in build, Q49)"
+    PRODUCT_DIMENSION |o--o{ RCD_POS_BASE : "ean"
+    STORE_DIMENSION |o--o{ RCD_ATACADAO_DASH : "customer + banner + store_cod"
+    PRODUCT_DIMENSION |o--o{ RCD_ATACADAO_DASH : "ean (second copy f5e11ab5, not deduped)"
+
+    PRODUCT_DIMENSION {
+        string ean PK "aka RCD_MASTER_PRODUCT; not unique, flows dedupe"
+    }
+    STORE_DIMENSION {
+        string customer PK "aka RCD_MASTER_STORES"
+        string banner PK
+        long store_cod PK "LONG in Domo: no leading zeros"
+        long store_cnpj "used by Scanntech join"
+        string area "used by MKT join"
+        string canal "used by MKT join"
+    }
+    CUSTOMER_POS_DATA {
+        string YYYYMM PK
+        string ean PK, FK
+        string customer PK, FK
+        string banner PK, FK
+        string store_cod PK, FK
+    }
+    RCD_NIELSEN_MT_JOIN_DN_DP_EAN_NIQ {
+        string ym PK
+        string area PK
+        string canal PK
+        string ean PK, FK
+    }
+    RCD_NIELSEN_ST {
+        string ym PK
+        string area PK
+        string mercado_nielsen PK
+        string canal PK
+        string ean PK, FK
+    }
+    RCD_DN_DP_EAN_NIQ {
+        string yyyymm PK
+        string ean PK, FK
+        string canal PK
+        string area PK
+    }
+    RCD_TAB_MKT_P_MASTER_FLOW {
+        string ym PK
+        string area PK
+        string canal PK
+        string ean PK, FK
+    }
+    RCD_TAB_BASE_MKT {
+        string ym PK
+        string area PK
+        string canal PK
+        string ean PK, FK
+        string supplier "TOTAL SUPPLIER rows too"
+    }
+    RCD_TAB_BASE_MKT_APP {
+        string ym PK
+        string area PK
+        string canal PK
+        string ean PK, FK "zero-stripped; SEM EAN rows"
+        string sub_category_source "MASTER or NIELSEN inferred"
+    }
+    RCD_SORT_REC_NACIONAL {
+        string ean PK
+    }
+    RCD_TAB_MKT_CUSTOMER_RESUMO {
+        string ym "plus QUARTER, CANAL"
+        string ean FK
+        string customer FK "or MKT / RD-CLUSTER"
+        string banner FK
+        string store_cod FK
+    }
+    RCD_SORT_REC {
+        string ean PK
+        string quarter PK "e.g. 25 - Q1"
+    }
+    DE_PARA_RD {
+        string prod_code PK "RD product code"
+        string scan_type_code FK "EAN; read as decimal (.0)"
+    }
+    RCD_DOT_ANALISE_CUSTOMER {
+        string customer PK, FK
+        string banner PK, FK
+        string store_cod PK, FK
+        string ean PK, FK
+        string ym PK
+    }
+    RCD_TAB_CONFERENCE {
+        string customer FK
+        string banner FK
+        string store_cod FK
+        string ean
+        string ym
+    }
+    RCD_TAB_SCORECARD {
+        string customer FK "or MKT"
+        string banner FK
+        string store_cod FK
+        string ean FK
+        string ym
+    }
+    RCD_LANCAMENTOS_CP {
+        string ean PK "aka RCD LANÇAMENTOS CP"
+        string quarter "Lauch_Quarter"
+        string type_launch "Lauch_Type"
+    }
+    RCD_ASSORTMENT_RECOMMENDATIONS {
+        string customer PK
+        string banner PK
+        string cluster_customer PK
+        string cluster_size PK
+        string ean PK
+        int exec_date PK "YYYYMM cycle start"
+        int exec "2 list, 1 keep, 0 delist"
+    }
+    RCD_ASSORTMENT_COMPLIANCE_TABLE {
+        int ym_sales PK
+        string customer PK
+        string banner PK
+        string cluster_customer PK
+        string cluster_size PK
+        string ean PK, FK
+    }
+    RCD_TAB_MKT_CUSTOMER_COMPLETO {
+        string ym PK
+        string ean PK, FK
+        string customer PK, FK
+        string banner PK, FK
+        string store_cod PK, FK
+    }
