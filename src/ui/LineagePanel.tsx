@@ -1,6 +1,6 @@
 import type { Graph, GraphNode } from '../indexer/types';
 import { gapsFor, neighbours, type Neighbour } from './lineage';
-import { docHash } from './route';
+import { docHash, graphHash } from './route';
 
 function NodeLink({ node }: { node: GraphNode }) {
   if (node.file === null) {
@@ -70,7 +70,15 @@ export function LineagePanel({
   const gapCount = gaps.oneSided.length + gaps.references.length;
   return (
     <aside className="lineage">
-      <h2>Lineage</h2>
+      <h2>
+        Lineage{' '}
+        <a
+          className="graph-link-small"
+          href={graphHash({ focus: node.id, node: node.id })}
+        >
+          Show in graph
+        </a>
+      </h2>
       <NeighbourList title="Upstream" items={upstream} />
       <NeighbourList title="Downstream" items={downstream} />
       {gapCount > 0 && (
