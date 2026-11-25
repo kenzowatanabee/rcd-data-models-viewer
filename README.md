@@ -3,8 +3,9 @@
 A local viewer for [`rcd-data-models`](https://github.com/kenzowatanabee/rcd-data-models),
 the data dictionary and lineage map of the RCD Domo stack.
 
-**Current state: indexer and a first viewer.** The viewer shows the docs, their
-front-matter and their direct lineage; there is no lineage graph or search yet.
+**Current state: indexer, viewer and lineage graph.** The viewer shows the docs, their
+front-matter and their direct lineage, and draws the whole lineage as an interactive
+graph; there is no column or full-text search yet.
 
 The viewer never copies the docs. It reads a clone of `rcd-data-models` from a path you
 give it, so it shows whatever branch that clone has checked out.
@@ -45,6 +46,7 @@ What it shows:
   that involve the doc: one-sided links and ambiguous, unresolved or wrong-kind
   references.
 - **Landing page:** the indexer summary (counts, problems) and the repo `README.md`.
+- **Lineage graph** (`#/graph`, linked from the top of the sidebar): see below.
 
 The address is `#/doc/<repo-relative path>`, so back, forward and reload work. When a
 Markdown file in the clone changes, the open page and the index refresh by themselves.
@@ -53,8 +55,54 @@ The server only reads Markdown files inside the clone (`GET /api/graph`,
 `GET /api/doc?file=<repo-relative path>`); other paths, `.git` and anything outside the
 clone are refused.
 
-Not built yet: the interactive lineage graph, column and full-text search, a desktop
-package, and a production build.
+### Lineage graph
+
+The graph page lays out every dataset, pipeline and undocumented name from left to
+right, in the direction the data flows, so sources end up on the left and outputs on
+the right. Drag to pan, scroll to zoom; the buttons at the top left zoom and fit the
+graph to the window, and the minimap at the bottom right (on wide windows) pans too.
+
+- **Nodes:** datasets are rectangles with a coloured bar for their `layer` (source,
+  dimension, intermediate, output; grey for anything else) and the layer written
+  underneath. Pipelines are rounded and purple. Names no doc has are dashed and grey,
+  marked "undocumented". Nodes with no edges at all are shown in a row under the
+  graph, headed "Not linked to anything". The legend is in the side panel.
+- **Direct links:** a dataset → dataset link from `upstream` is hidden by default when a
+  pipeline between the same two datasets already declares the flow (the dataset is an
+  input of the pipeline and the other is its output). Links with no such pipeline are
+  always shown, since they are the only record of that flow. "Direct links a pipeline
+  also gives" shows the hidden ones as dashed lines.
+- **Undocumented names:** the "Undocumented names" box hides or shows the `external`
+  nodes and their edges.
+- **Selecting:** clicking a node lights up everything it is built from (blue) and
+  everything built from it (orange), and dims the rest; clicking empty space clears it.
+  The side panel shows the node's kind, layer and status, how many datasets, pipelines
+  and undocumented names lie upstream and downstream, the ones furthest back (nothing
+  feeds them) and the ones it ends up in (nothing reads them), a count of lineage gaps,
+  and "Open doc" for documented nodes. Shift-clicking a second node shows only what
+  lies between the two, and lists the pipelines on the way.
+- **Only this lineage:** lays out the selected node with only what is upstream and
+  downstream of it. "Whole graph" goes back. Depth 1 or 2 limits both the highlight and
+  this view to that many datasets away, with the pipelines between them; "all" has no
+  limit. "Show in graph" on a doc's lineage panel opens this view for that doc.
+- **Find:** the search box matches names and aliases the way the sidebar filter does
+  (ignoring case and accents), selects the node and centres the view on it, switching
+  to the whole graph, and showing undocumented names, if it is not in the current view.
+
+The address holds the view: `#/graph` for the whole graph, `#/graph?node=<id>` with a
+selection, `#/graph/<id>` for one node's lineage, plus `depth=1|2`, `external=hide` and
+`links=all` when they differ from the defaults. Node ids are doc paths or
+`external:<name>`, URL-encoded. Changing the view adds a history entry, so back and
+forward step through views; selecting a node replaces the current entry. When the
+docs change, the graph refreshes and keeps the selection while the node still exists;
+the layout is only recomputed when the drawn nodes or edges change.
+
+The whole graph is an overview: at around 90 nodes, fitted to a laptop screen, the
+labels are too small to read without zooming, and the dimension datasets that feed
+most pipelines draw long bundles of edges across the middle. Selecting a node, or
+"Only this lineage", is the readable way to follow one flow.
+
+Not built yet: column and full-text search, a desktop package, and a production build.
 
 ## Indexer
 

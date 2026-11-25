@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { GraphNode } from '../indexer/types';
 import type { GraphResponse } from '../server/api';
 import { matchesFilter } from './filter';
-import { docHash } from './route';
+import { docHash, graphHash } from './route';
 
 interface Item {
   file: string;
@@ -95,6 +95,9 @@ export function Sidebar({
     <nav className="sidebar">
       <a className="home-link" href="#/">
         RCD data models
+      </a>
+      <a className="graph-link" href={graphHash()}>
+        Lineage graph
       </a>
       <input
         type="search"

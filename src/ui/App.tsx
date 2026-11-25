@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { GraphResponse } from '../server/api';
 import { fetchGraph, useDocsVersion } from './api';
 import { DocView } from './DocView';
+import { GraphPage } from './GraphPage';
 import { parseHash } from './route';
 import { Sidebar } from './Sidebar';
 
@@ -33,6 +34,13 @@ export function App() {
   }, [version]);
 
   const route = parseHash(hash);
+  if (route.view === 'graph') {
+    return (
+      <div className="app app-graph">
+        <GraphPage data={data} route={route} graphError={graphError} />
+      </div>
+    );
+  }
   const file = route.view === 'doc' ? route.file : LANDING_DOC;
 
   return (
