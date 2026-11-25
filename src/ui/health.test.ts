@@ -6,6 +6,7 @@ import {
   checklist,
   healthReport,
   issueCount,
+  issuesByFile,
   sectionCount,
   sectionLines,
 } from './health';
@@ -224,5 +225,21 @@ describe('checklist', () => {
     expect(sectionLines(report, 'undocumented')).toEqual([
       `Document \`RAW\` (5 downstream): named in ${A} \`upstream\`, ${C} \`upstream\`.`,
     ]);
+  });
+});
+
+describe('issuesByFile', () => {
+  it('counts the to-do lines that name each file, as the filter would', () => {
+    const report = healthReport(graph);
+    const counts = issuesByFile(report, [A, B, C, LONE, P, Q]);
+    for (const [file, count] of counts) {
+      const matching = SECTION_IDS.filter((id) => id !== 'status').flatMap(
+        (id) => sectionLines(report, id).filter((line) => line.includes(file)),
+      );
+      expect(count).toBe(matching.length);
+    }
+    expect(counts.get(B)).toBeGreaterThan(0);
+    // A file named nowhere gets no entry
+    expect(issuesByFile(report, ['docs/nowhere.md']).size).toBe(0);
   });
 });

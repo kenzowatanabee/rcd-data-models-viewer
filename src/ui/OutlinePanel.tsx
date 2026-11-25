@@ -1,4 +1,3 @@
-import { ChevronDown, TableOfContents } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -86,6 +85,8 @@ interface ListProps {
   follow?: boolean;
   /** Called on any pick, to close a menu. */
   onPick?: () => void;
+  /** The address of a section; the rendered page's by default. */
+  hrefOf?: (id: string) => string;
 }
 
 function OutlineList({
@@ -95,6 +96,7 @@ function OutlineList({
   onSelect,
   follow,
   onPick,
+  hrefOf = (id) => docHash(file, id),
 }: ListProps) {
   const listRef = useRef<HTMLOListElement>(null);
   useEffect(() => {
@@ -117,7 +119,7 @@ function OutlineList({
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0)
       return;
     // The same address again changes nothing, so scroll here instead
-    if (window.location.hash === docHash(file, id)) {
+    if (window.location.hash === hrefOf(id)) {
       event.preventDefault();
       onSelect(id);
     }
@@ -130,7 +132,7 @@ function OutlineList({
         <li key={item.id}>
           <a
             className={`outline-link depth-${item.depth}`}
-            href={docHash(file, item.id)}
+            href={hrefOf(item.id)}
             aria-current={item.id === active ? 'location' : undefined}
             onClick={(event) => onClick(event, item.id)}
           >
@@ -154,60 +156,5 @@ export function OutlinePanel(props: ListProps) {
         <OutlineList {...props} follow />
       </div>
     </nav>
-  );
-}
-
-/** "On this page" for narrow windows: a sticky bar with a drop-down list. */
-export function OutlineMenu(props: ListProps) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const current = props.items.find((item) => item.id === props.active);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-        buttonRef.current?.focus();
-      }
-    };
-    document.addEventListener('pointerdown', onPointer);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  return (
-    <div className="outline-menu" ref={rootRef}>
-      <button
-        ref={buttonRef}
-        type="button"
-        className="outline-menu-button"
-        aria-expanded={open}
-        aria-controls="outline-menu-list"
-        onClick={() => setOpen((value) => !value)}
-      >
-        <TableOfContents size={14} aria-hidden="true" />
-        <span className="outline-menu-label">On this page</span>
-        {current && (
-          <span className="outline-menu-current">{current.text}</span>
-        )}
-        <ChevronDown size={14} aria-hidden="true" className="chevron" />
-      </button>
-      {open && (
-        <div
-          className="outline-menu-popover outline-scroll"
-          id="outline-menu-list"
-        >
-          <OutlineList {...props} follow onPick={() => setOpen(false)} />
-        </div>
-      )}
-    </div>
   );
 }

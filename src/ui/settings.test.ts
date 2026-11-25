@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ASIDE_DEFAULT,
+  ASIDE_MAX,
+  ASIDE_MIN,
+  PINNED_LIMIT,
   SIDEBAR_DEFAULT,
   SIDEBAR_MAX,
   SIDEBAR_MIN,
@@ -8,12 +12,17 @@ import {
   folderName,
   motionDuration,
   nextIndex,
+  parseAsideWidth,
   parseCollapsedGroups,
+  parseDensity,
   parseFlag,
+  parseGroupBy,
+  parsePinned,
   parseSidebarWidth,
   parseThemePreference,
   resolveTheme,
   serialiseCollapsedGroups,
+  togglePinned,
 } from './settings';
 
 describe('theme', () => {
@@ -55,10 +64,17 @@ describe('sidebar width', () => {
 });
 
 describe('collapsed groups', () => {
-  it('round-trips known ids and drops the rest', () => {
-    const groups = parseCollapsedGroups('["pipelines","nope",3,"other"]');
-    expect([...groups].sort()).toEqual(['other', 'pipelines']);
-    expect(serialiseCollapsedGroups(groups)).toBe('["pipelines","other"]');
+  it('round-trips string keys and drops the rest', () => {
+    const groups = parseCollapsedGroups(
+      '["pipelines","layer:source",3,"","other",null,"pipelines"]',
+    );
+    expect([...groups].sort()).toEqual(['layer:source', 'other', 'pipelines']);
+    expect(serialiseCollapsedGroups(groups)).toBe(
+      '["layer:source","other","pipelines"]',
+    );
+    expect(parseCollapsedGroups(JSON.stringify(['x'.repeat(500)])).size).toBe(
+      0,
+    );
   });
 
   it('treats unreadable values as none collapsed', () => {
@@ -106,5 +122,40 @@ describe('motionDuration', () => {
   it('drops animation for reduced motion', () => {
     expect(motionDuration(300, false)).toBe(300);
     expect(motionDuration(300, true)).toBe(0);
+  });
+});
+
+describe('pinned docs', () => {
+  it('parses a list of files, tolerating junk', () => {
+    expect(parsePinned('["a.md","b.md",1,"a.md"]')).toEqual(['a.md', 'b.md']);
+    expect(parsePinned('nope')).toEqual([]);
+    expect(parsePinned(null)).toEqual([]);
+    const many = JSON.stringify(Array.from({ length: 99 }, (_, i) => `${i}`));
+    expect(parsePinned(many)).toHaveLength(PINNED_LIMIT);
+  });
+
+  it('pins at the end and unpins in place', () => {
+    expect(togglePinned(['a', 'b'], 'c')).toEqual(['a', 'b', 'c']);
+    expect(togglePinned(['a', 'b', 'c'], 'b')).toEqual(['a', 'c']);
+  });
+});
+
+describe('view settings', () => {
+  it('defaults group-by to layer and density to comfortable', () => {
+    expect(parseGroupBy('family')).toBe('family');
+    expect(parseGroupBy('az')).toBe('az');
+    expect(parseGroupBy('AZ')).toBe('layer');
+    expect(parseGroupBy(null)).toBe('layer');
+    expect(parseDensity('compact')).toBe('compact');
+    expect(parseDensity('tight')).toBe('comfortable');
+    expect(parseDensity(null)).toBe('comfortable');
+  });
+
+  it('clamps the right-hand column width', () => {
+    expect(parseAsideWidth('300')).toBe(300);
+    expect(parseAsideWidth('1')).toBe(ASIDE_MIN);
+    expect(parseAsideWidth('5000')).toBe(ASIDE_MAX);
+    expect(parseAsideWidth('x')).toBe(ASIDE_DEFAULT);
+    expect(parseAsideWidth(null)).toBe(ASIDE_DEFAULT);
   });
 });

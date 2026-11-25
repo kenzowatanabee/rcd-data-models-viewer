@@ -77,12 +77,15 @@ export function useDocScroll({
   file,
   anchor,
   ready,
+  view = '',
 }: {
   scrollRef: RefObject<HTMLElement | null>;
   rootRef: RefObject<HTMLElement | null>;
   file: string;
   anchor: string | null;
   ready: boolean;
+  /** What is shown of the doc (rendered or source); a change re-places it. */
+  view?: string;
 }): (id: string) => void {
   const reducedMotion = useReducedMotion();
   const keyRef = useRef<string | null>(null);
@@ -108,7 +111,7 @@ export function useDocScroll({
   // next doc loads must not overwrite the last entry's position
   useLayoutEffect(() => {
     keyRef.current = null;
-  }, [file, anchor]);
+  }, [file, anchor, view]);
 
   useLayoutEffect(() => {
     const scroller = scrollRef.current;
@@ -169,7 +172,7 @@ export function useDocScroll({
       window.clearTimeout(timer);
       for (const name of events) scroller.removeEventListener(name, stop);
     };
-  }, [file, anchor, ready, scrollRef, rootRef, reducedMotion]);
+  }, [file, anchor, ready, view, scrollRef, rootRef, reducedMotion]);
 
   return useCallback(
     (id: string) => {

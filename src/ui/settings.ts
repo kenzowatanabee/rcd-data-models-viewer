@@ -9,10 +9,21 @@ export const STORAGE_KEYS = {
   sidebarWidth: 'rcd-viewer.sidebar-width',
   sidebarCollapsed: 'rcd-viewer.sidebar-collapsed',
   collapsedGroups: 'rcd-viewer.collapsed-groups',
+  sidebarFilters: 'rcd-viewer.sidebar-filters',
   graphPanelWidth: 'rcd-viewer.graph-panel-width',
   graphPanelCollapsed: 'rcd-viewer.graph-panel-collapsed',
   docAsideCollapsed: 'rcd-viewer.doc-aside-collapsed',
+  docAsideWidth: 'rcd-viewer.doc-aside-width',
   recent: 'rcd-viewer.recent',
+  pinned: 'rcd-viewer.pinned',
+  groupBy: 'rcd-viewer.group-by',
+  density: 'rcd-viewer.density',
+  sourceWrap: 'rcd-viewer.source-wrap',
+} as const;
+
+/** Per-tab memory (sessionStorage): which docs were left in Markdown view. */
+export const SESSION_KEYS = {
+  sourceDocs: 'rcd-viewer.source-docs',
 } as const;
 
 export function parseThemePreference(raw: string | null): ThemePreference {
@@ -51,25 +62,64 @@ export function parseFlag(raw: string | null): boolean {
   return raw === 'true';
 }
 
-export const GROUP_IDS = ['datasets', 'pipelines', 'other'] as const;
-export type GroupId = (typeof GROUP_IDS)[number];
+/** Longest stored group key, and how many are kept; guards odd storage. */
+const KEY_MAX = 200;
+const KEYS_MAX = 300;
 
-const isGroupId = (value: unknown): value is GroupId =>
-  typeof value === 'string' && (GROUP_IDS as readonly string[]).includes(value);
-
-/** A JSON array of group ids; anything unreadable means none collapsed. */
-export function parseCollapsedGroups(raw: string | null): Set<GroupId> {
-  if (raw === null) return new Set();
+/** A JSON array of strings; anything unreadable means none. */
+export function parseStringList(raw: string | null, limit = KEYS_MAX) {
+  if (raw === null) return [];
   try {
     const value: unknown = JSON.parse(raw);
-    return new Set(Array.isArray(value) ? value.filter(isGroupId) : []);
+    if (!Array.isArray(value)) return [];
+    const strings = value.filter(
+      (item): item is string =>
+        typeof item === 'string' && item !== '' && item.length <= KEY_MAX,
+    );
+    return [...new Set(strings)].slice(0, limit);
   } catch {
-    return new Set();
+    return [];
   }
 }
 
-export function serialiseCollapsedGroups(groups: ReadonlySet<GroupId>) {
-  return JSON.stringify(GROUP_IDS.filter((id) => groups.has(id)));
+/** Collapsed sidebar groups, by group key (`datasets`, `layer:source`...). */
+export const parseCollapsedGroups = (raw: string | null): Set<string> =>
+  new Set(parseStringList(raw));
+
+export const serialiseCollapsedGroups = (groups: ReadonlySet<string>) =>
+  JSON.stringify([...groups].sort());
+
+export const PINNED_LIMIT = 30;
+
+/** Pinned doc files, in the order they were pinned. */
+export const parsePinned = (raw: string | null) =>
+  parseStringList(raw, PINNED_LIMIT);
+
+/** Pins `file` at the end, or unpins it when already there. */
+export function togglePinned(pinned: readonly string[], file: string) {
+  return pinned.includes(file)
+    ? pinned.filter((other) => other !== file)
+    : [...pinned, file].slice(-PINNED_LIMIT);
+}
+
+export type GroupBy = 'layer' | 'az' | 'family';
+
+export const parseGroupBy = (raw: string | null): GroupBy =>
+  raw === 'az' || raw === 'family' ? raw : 'layer';
+
+export type Density = 'comfortable' | 'compact';
+
+export const parseDensity = (raw: string | null): Density =>
+  raw === 'compact' ? 'compact' : 'comfortable';
+
+export const ASIDE_MIN = 260;
+export const ASIDE_MAX = 480;
+export const ASIDE_DEFAULT = 320;
+
+export function parseAsideWidth(raw: string | null): number {
+  const value = raw === null || raw.trim() === '' ? NaN : Number(raw);
+  if (!Number.isFinite(value)) return ASIDE_DEFAULT;
+  return Math.round(Math.min(ASIDE_MAX, Math.max(ASIDE_MIN, value)));
 }
 
 /** The last segment of a path, with either kind of slash (Windows too). */

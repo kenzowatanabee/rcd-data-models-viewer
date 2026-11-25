@@ -1,8 +1,8 @@
-import { CircleCheck, PencilLine, Waypoints } from 'lucide-react';
+import { CircleCheck, Link2, PencilLine, Waypoints } from 'lucide-react';
 import type { Ref } from 'react';
 
 import { CopyButton } from './CopyButton';
-import type { DocHeaderModel } from './docHeaderModel';
+import { markdownLink, type DocHeaderModel } from './docHeaderModel';
 import { inlineParts } from './outline';
 import { graphHash } from './route';
 
@@ -15,6 +15,8 @@ interface Props {
   model: DocHeaderModel;
   /** Graph node id, for "Show in graph"; null for docs outside the graph. */
   graphNode: string | null;
+  /** Text for "Copy as Markdown link": the doc's name or title. */
+  linkName: string | null;
   frontMatterError: string | null;
   titleRef?: Ref<HTMLHeadingElement>;
 }
@@ -42,6 +44,7 @@ export function DocHeader({
   titleId,
   model,
   graphNode,
+  linkName,
   frontMatterError,
   titleRef,
 }: Props) {
@@ -138,6 +141,12 @@ export function DocHeader({
           <dd>
             <code title={file}>{file}</code>
             <CopyButton text={file} label="Copy the file path" />
+            <CopyButton
+              text={markdownLink(linkName ?? fileName, file)}
+              label="Copy as a Markdown link"
+            >
+              <Link2 size={13} aria-hidden="true" />
+            </CopyButton>
           </dd>
         </div>
       </dl>

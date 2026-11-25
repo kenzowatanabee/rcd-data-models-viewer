@@ -56,10 +56,27 @@
   --topbar-h: 44px;
   --row-h: 28px;
   --panel-w: 320px;
+  /* Density: list rows and table cells; compact is set on <html> */
+  --cell-pad-y: 7px;
+  --cell-pad-x: var(--space-3);
+  /* Page frame shared by the doc, landing and health pages */
+  --page-max: 1080px;
+  --page-pad-x: var(--space-10);
+  --page-pad-top: var(--space-6);
+  --doc-bar-h: 44px;
+  /* Overlay drawers on narrow windows */
+  --drawer-w: min(340px, calc(100vw - 48px));
+  --duration-drawer: 180ms;
 
   /* Motion */
   --duration-fast: 120ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-density='compact'] {
+  --row-h: 24px;
+  --cell-pad-y: 4px;
+  --cell-pad-x: var(--space-2);
 }
 
 /* Light (the default) */
@@ -120,6 +137,11 @@
   --color-code-name: #0f6a72;
   /* Behind modal views */
   --color-scrim: rgb(15 20 30 / 0.45);
+  /* Thin scrollbars that sit back until used */
+  --color-scrollbar: #c3c8cf;
+  --color-scrollbar-hover: #9aa1ab;
+  --shadow-drawer:
+    0 0 0 1px rgb(15 20 30 / 0.08), 0 12px 40px rgb(15 20 30 / 0.22);
   /* Elevation: one style, for popovers and menus */
   --shadow-popover:
     0 0 0 1px rgb(15 20 30 / 0.08), 0 6px 20px -4px rgb(15 20 30 / 0.18);
@@ -175,6 +197,10 @@
   --color-code-number: #f0a35e;
   --color-code-name: #5fd0d8;
   --color-scrim: rgb(0 0 0 / 0.6);
+  --color-scrollbar: #3a3f47;
+  --color-scrollbar-hover: #565d67;
+  --shadow-drawer:
+    0 0 0 1px rgb(255 255 255 / 0.08), 0 12px 40px rgb(0 0 0 / 0.6);
   --shadow-popover:
     0 0 0 1px rgb(255 255 255 / 0.08), 0 8px 24px -4px rgb(0 0 0 / 0.6);
 }

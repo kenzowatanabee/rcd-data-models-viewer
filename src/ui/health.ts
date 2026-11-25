@@ -380,3 +380,24 @@ export function checklist(report: HealthReport, id: SectionId): string {
       : lines.map((line) => `- [ ] ${line}`);
   return [`## ${SECTION_TITLES[id]}`, '', ...body, ''].join('\n');
 }
+
+/**
+ * How many to-do items mention each file. It uses the same lines and the
+ * same matching as the health page's filter, so filtering that page by the
+ * file shows exactly these items.
+ */
+export function issuesByFile(
+  report: HealthReport,
+  files: readonly string[],
+): Map<string, number> {
+  const lines = SECTION_IDS.filter((id) => id !== 'status').flatMap((id) =>
+    sectionLines(report, id).map(fold),
+  );
+  const counts = new Map<string, number>();
+  for (const file of files) {
+    const wanted = fold(file);
+    const count = lines.filter((line) => line.includes(wanted)).length;
+    if (count > 0) counts.set(file, count);
+  }
+  return counts;
+}
