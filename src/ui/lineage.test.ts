@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Graph, GraphNode } from '../indexer/types';
-import { gapsFor, neighbours } from './lineage';
+import {
+  describeOneSided,
+  describeReference,
+  gapsFor,
+  neighbours,
+} from './lineage';
 
 const node = (id: string, name: string): GraphNode => ({
   id,
@@ -119,5 +124,57 @@ describe('gapsFor', () => {
     expect(gapsFor(graph, out).references.map((r) => r.ref)).toEqual(['DUP']);
     // a candidate of an ambiguous name
     expect(gapsFor(graph, other).references.map((r) => r.ref)).toEqual(['DUP']);
+  });
+});
+
+describe('describeOneSided', () => {
+  it('names both docs and the field each should have', () => {
+    const [link] = graph.oneSided;
+    if (!link) throw new Error('fixture');
+    expect(describeOneSided(graph, link)).toEqual({
+      declared: { file: flow, field: 'inputs', name: 'FLOW' },
+      missing: { file: raw, field: 'downstream', name: 'RAW' },
+      uncertain: false,
+    });
+  });
+});
+
+describe('describeReference', () => {
+  it('explains an ambiguous name with its candidates', () => {
+    const reference = graph.references[1];
+    if (!reference) throw new Error('fixture');
+    expect(describeReference(graph, reference)).toEqual({
+      status: 'ambiguous',
+      ref: 'DUP',
+      at: { file: out, field: 'upstream', name: 'OUT' },
+      expected: 'dataset',
+      actual: null,
+      candidates: [
+        { file: raw, name: 'RAW' },
+        { file: other, name: 'OTHER' },
+      ],
+    });
+  });
+
+  it('says which kind a wrong-kind name has and which the field wants', () => {
+    const gap = describeReference(graph, {
+      file: out,
+      field: 'pipeline',
+      ref: 'RAW',
+      status: 'wrong-kind',
+      target: raw,
+      candidates: [],
+    });
+    expect(gap.status).toBe('wrong-kind');
+    expect(gap.expected).toBe('pipeline');
+    expect(gap.actual).toBe('dataset');
+  });
+
+  it('treats an unresolved name as undocumented', () => {
+    const reference = graph.references[0];
+    if (!reference) throw new Error('fixture');
+    const gap = describeReference(graph, reference);
+    expect(gap.status).toBe('unresolved');
+    expect(gap.at).toEqual({ file: flow, field: 'inputs', name: 'FLOW' });
   });
 });

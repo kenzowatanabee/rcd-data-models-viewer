@@ -19,6 +19,12 @@
   --text-md: 14px;
   --text-lg: 16px;
   --text-xl: 20px;
+  --text-2xl: 24px;
+  /* Long-form reading on doc pages: a size up from the UI, looser lines,
+     and a line length that stays comfortable on wide windows */
+  --text-prose: 15px;
+  --leading-prose: 1.65;
+  --measure: 78ch;
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
@@ -99,11 +105,21 @@
   --color-warning-subtle: #fdf5d8;
   --color-danger: #c62a2f;
   --color-danger-subtle: #fdecec;
+  --color-success: #17702f;
+  --color-success-subtle: #e6f4ea;
   --color-edge: #7f8790;
   --color-code-bg: #eef0f3;
   --color-band-bg: #f8f9fb;
   --color-band-shared-bg: #fcf8ee;
   --color-skeleton: #eceef1;
+  /* SQL in code blocks, on --color-surface-sunken */
+  --color-code-keyword: #7344d0;
+  --color-code-string: #18722f;
+  --color-code-comment: #5e6670;
+  --color-code-number: #9a4a00;
+  --color-code-name: #0f6a72;
+  /* Behind modal views */
+  --color-scrim: rgb(15 20 30 / 0.45);
   /* Elevation: one style, for popovers and menus */
   --shadow-popover:
     0 0 0 1px rgb(15 20 30 / 0.08), 0 6px 20px -4px rgb(15 20 30 / 0.18);
@@ -146,11 +162,19 @@
   --color-warning-subtle: #2e2717;
   --color-danger: #f47a76;
   --color-danger-subtle: #3a1f20;
+  --color-success: #4cbe5f;
+  --color-success-subtle: #1a2e1f;
   --color-edge: #6c737d;
   --color-code-bg: #262a31;
   --color-band-bg: #1a1d21;
   --color-band-shared-bg: #1f1d18;
   --color-skeleton: #262a31;
+  --color-code-keyword: #c4a7ff;
+  --color-code-string: #7ee787;
+  --color-code-comment: #9aa1ab;
+  --color-code-number: #f0a35e;
+  --color-code-name: #5fd0d8;
+  --color-scrim: rgb(0 0 0 / 0.6);
   --shadow-popover:
     0 0 0 1px rgb(255 255 255 / 0.08), 0 8px 24px -4px rgb(0 0 0 / 0.6);
 }

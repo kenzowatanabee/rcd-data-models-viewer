@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { headerFields, splitFrontMatter } from './frontMatter';
+import { splitFrontMatter } from './frontMatter';
 
 describe('splitFrontMatter', () => {
   it('separates the front-matter from the body', () => {
@@ -33,21 +33,5 @@ describe('splitFrontMatter', () => {
     expect(doc.data).toBeNull();
     expect(doc.error).not.toBeNull();
     expect(doc.body).toBe('Body');
-  });
-});
-
-describe('headerFields', () => {
-  it('picks the useful fields in order and formats dates', () => {
-    const { data } = splitFrontMatter(
-      '---\nlast_updated: 2026-11-23\ndomo_id: 8328\nname: X\ntype: pipeline\nplatform: Domo MagicETL\nstatus: draft\n---\n',
-    );
-    expect(headerFields(data)).toEqual([
-      { label: 'Kind', value: 'pipeline' },
-      { label: 'Platform', value: 'Domo MagicETL' },
-      { label: 'Status', value: 'draft' },
-      { label: 'Last updated', value: '2026-11-23' },
-      { label: 'Domo id', value: '8328' },
-    ]);
-    expect(headerFields(null)).toEqual([]);
   });
 });

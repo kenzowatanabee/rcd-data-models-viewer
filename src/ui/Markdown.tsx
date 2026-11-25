@@ -1,104 +1,85 @@
-import { Maximize2, Minimize2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Link as LinkIcon } from 'lucide-react';
+import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import ReactMarkdown, {
   type Components,
   type ExtraProps,
 } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 
-import { rehypeHeadingIds } from './headingIds';
+import { CodeBlock } from './CodeBlock';
+import { useCopy } from './CopyButton';
+import { MermaidBlock } from './Diagram';
+import { hastText, type HastNode } from './headingIds';
 import { resolveLink } from './links';
-import { renderMermaid, type DiagramResult } from './mermaid';
+import { markdownPlugins } from './markdownPipeline';
+import { OutlineSink, type OutlineItem } from './outline';
 import { docHash } from './route';
-import { useTheme } from './theme';
+import { TableBlock, TableRow, tableCell } from './TableBlock';
 
 type HastElement = NonNullable<ExtraProps['node']>;
-type HastChild = HastElement['children'][number];
 
-function textOf(node: HastChild): string {
-  if (node.type === 'text') return node.value;
-  if (node.type === 'element') return node.children.map(textOf).join('');
-  return '';
-}
-
-/** The source of a ```mermaid block, from the `<pre>` that holds it. */
-function mermaidSource(pre: HastElement | undefined): string | null {
+/** The ```lang of a code block, from the `<pre>` that holds it. */
+function codeOf(
+  pre: HastElement | undefined,
+): { source: string; language: string | null } | null {
   const code = pre?.children[0];
   if (code?.type !== 'element' || code.tagName !== 'code') return null;
   const classes = code.properties.className;
-  if (!Array.isArray(classes) || !classes.includes('language-mermaid')) {
-    return null;
-  }
-  return code.children.map(textOf).join('');
+  const language = Array.isArray(classes)
+    ? classes
+        .map(String)
+        .find((name) => name.startsWith('language-'))
+        ?.slice('language-'.length)
+    : undefined;
+  return {
+    source: hastText(code as HastNode),
+    language: language ?? null,
+  };
 }
 
-function MermaidBlock({ source }: { source: string }) {
-  const { theme } = useTheme();
-  const [result, setResult] = useState<DiagramResult | null>(null);
-  const [fit, setFit] = useState(false);
-  // On a theme change the old diagram stays up until the new one is drawn
-  useEffect(() => {
-    let cancelled = false;
-    void renderMermaid(source, theme).then((rendered) => {
-      if (!cancelled) setResult(rendered);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [source, theme]);
+/** The address of a section, as a full URL to paste elsewhere. */
+const sectionUrl = (file: string, id: string) =>
+  `${window.location.origin}${window.location.pathname}${docHash(file, id)}`;
 
-  if (result === null) {
-    return (
-      <div className="mermaid-pending" role="status">
-        <span className="spinner" aria-hidden="true" />
-        Rendering diagram…
-      </div>
-    );
-  }
-  if ('error' in result) {
-    return (
-      <div className="mermaid-error">
-        <p>
-          <strong>This diagram could not be rendered.</strong>
-        </p>
-        {/* Parser errors point at a column, so keep their line breaks */}
-        <pre className="mermaid-message">{result.error}</pre>
-        <p>Source:</p>
-        <pre>
-          <code>{source}</code>
-        </pre>
-      </div>
-    );
-  }
+function HeadingAnchor({ file, id }: { file: string; id: string }) {
+  const [state, copy] = useCopy();
   return (
-    <figure className="mermaid">
-      <div className="mermaid-toolbar">
-        <button
-          type="button"
-          className="btn btn-sm"
-          onClick={() => setFit((value) => !value)}
-        >
-          {fit ? (
-            <Maximize2 size={13} aria-hidden="true" />
-          ) : (
-            <Minimize2 size={13} aria-hidden="true" />
-          )}
-          {fit ? 'Actual size' : 'Fit to width'}
-        </button>
-      </div>
-      <div
-        className={fit ? 'mermaid-diagram fit' : 'mermaid-diagram'}
-        // mermaid's output, sanitised by mermaid itself in strict mode
-        dangerouslySetInnerHTML={{ __html: result.svg }}
-      />
-    </figure>
+    <a
+      className="heading-anchor"
+      href={docHash(file, id)}
+      aria-label="Link to this section (copies the address)"
+      title="Link to this section (copies the address)"
+      onClick={() => copy(sectionUrl(file, id))}
+      data-state={state}
+    >
+      <LinkIcon size={14} aria-hidden="true" />
+      {state === 'copied' && <span className="copy-feedback">Copied</span>}
+    </a>
   );
+}
+
+function heading(Tag: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6', file: string) {
+  return function Heading({
+    id,
+    children,
+  }: {
+    id?: string;
+    children?: ReactNode;
+  }) {
+    return (
+      <Tag id={id}>
+        {children}
+        {id !== undefined && <HeadingAnchor file={file} id={id} />}
+      </Tag>
+    );
+  };
 }
 
 function components(file: string): Components {
   return {
-    a({ href, children, title }) {
-      const target = resolveLink(file, href ?? '');
+    a({ href, children, title, id }) {
+      // An allowlisted `<a id>` link target, not a link
+      if (href === undefined) return <a id={id}>{children}</a>;
+      const target = resolveLink(file, href);
       switch (target.kind) {
         case 'doc':
           return (
@@ -144,18 +125,28 @@ function components(file: string): Components {
           );
       }
     },
+    h1: heading('h1', file),
+    h2: heading('h2', file),
+    h3: heading('h3', file),
+    h4: heading('h4', file),
+    h5: heading('h5', file),
+    h6: heading('h6', file),
     pre({ node, children }) {
-      const source = mermaidSource(node);
-      if (source !== null) return <MermaidBlock source={source} />;
-      return <pre>{children}</pre>;
+      const code = codeOf(node);
+      if (code === null) return <pre>{children}</pre>;
+      if (code.language === 'mermaid') {
+        return <MermaidBlock source={code.source} />;
+      }
+      return <CodeBlock source={code.source} language={code.language} />;
     },
-    table({ children }) {
+    table({ node, children }) {
       return (
-        <div className="table-scroll">
-          <table>{children}</table>
-        </div>
+        <TableBlock node={node as HastNode | undefined}>{children}</TableBlock>
       );
     },
+    tr: TableRow,
+    td: tableCell('td'),
+    th: tableCell('th'),
     img({ src, alt }) {
       if (typeof src === 'string' && /^https?:\/\//i.test(src)) {
         return <img src={src} alt={alt} />;
@@ -165,19 +156,44 @@ function components(file: string): Components {
   };
 }
 
-/** GitHub-flavoured Markdown, no raw HTML, links resolved against `file`. */
-export function Markdown({ file, body }: { file: string; body: string }) {
+interface Props {
+  file: string;
+  body: string;
+  /** The title's text, taken out of the body; keeps heading ids as on GitHub. */
+  title?: string | null;
+  /** Called with the h2/h3 outline after each render that changes it. */
+  onOutline?: (items: OutlineItem[]) => void;
+}
+
+/**
+ * GitHub-flavoured Markdown with an allowlist of raw HTML (see
+ * htmlAllowlist.ts), links resolved against `file`.
+ */
+export function Markdown({ file, body, title = null, onOutline }: Props) {
   // Stable per file, so re-renders do not remount (and redraw) every diagram
   const overrides = useMemo(() => components(file), [file]);
+  // The outline is collected while rendering and handed over after it;
+  // the receiver ignores an unchanged outline
+  const sink = useMemo(() => new OutlineSink(), []);
+  const plugins = useMemo(
+    () =>
+      markdownPlugins({
+        reserved: title === null ? [] : [title],
+        collect: sink.collect,
+      }),
+    [title, sink],
+  );
+  // Before paint, so the outline column does not pop in a frame late
+  useLayoutEffect(() => {
+    onOutline?.(sink.items);
+  });
+
   return (
     <div className="markdown">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHeadingIds]}
+        remarkPlugins={plugins.remark}
+        rehypePlugins={plugins.rehype}
         components={overrides}
-        // Raw HTML is not rendered; the docs only use it for <details>, whose
-        // content is plain Markdown and still shows
-        skipHtml
       >
         {body}
       </ReactMarkdown>

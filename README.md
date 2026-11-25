@@ -43,19 +43,49 @@ What it shows:
   groups are remembered. The filter matches names and
   aliases, ignoring case, accents and the difference between spaces, hyphens and
   underscores (`hierarquia soa` finds `RCD_HIERARQUIA_SOA`).
-- **Doc page:** the Markdown with GitHub-style tables and Mermaid diagrams. The
-  front-matter is not shown as text; its kind, layer, platform, status, last update and
-  Domo id are shown as a header instead. Raw HTML in the Markdown is dropped, not
-  rendered: a `<details>` block shows its content, without the summary line. A diagram that does not parse shows the
-  error and its source. Large diagrams are shown at full size and scroll; "Fit to
-  width" shrinks them.
+- **Doc page:** a header with the doc's title (its `# heading`, shown once), the kind,
+  layer and status as badges (`draft` is dashed amber, `reviewed` solid green), the
+  dataset's `grain` on its own line, the platform, Domo id, last update, aliases, the
+  file path with a copy button, and "Show in graph" for datasets and pipelines. Docs
+  without front-matter get the title and path only. The body is set for reading: prose
+  keeps to about 78 characters a line while tables, code and diagrams use the full
+  width. Hovering a heading shows a link icon that puts the section in the address and
+  copies it.
+- **On this page:** the doc's `##` and `###` headings, highlighting the section being
+  read; a click scrolls there (without animation when the system asks for reduced
+  motion, and instantly for long jumps). On wide windows (1200 px and up) it sits in the
+  right-hand column under the lineage, each part scrolling on its own; on narrower ones
+  it is a drop-down in a bar that stays at the top of the doc.
+- **Tables** scroll inside their own frame, with the header row kept in view and a
+  shadow on an edge where columns are cut off. Columns holding only numbers are
+  right-aligned. Tables with more than 12 rows get a filter box that hides rows not
+  matching (the same matching as the sidebar filter) and shows "n of m rows".
+- **Code blocks** have a copy button; `sql` blocks are coloured by a small built-in
+  tokenizer. **Diagrams** sit in a frame with "Fit to width" / "Actual size" (diagrams
+  only slightly wider than the column start fitted) and "Open larger": a full-window
+  view where dragging or the arrow keys pan, the wheel or + and − zoom, 0 fits, and Esc
+  closes. Diagrams take their colours from the app's theme. A diagram that does not
+  parse shows the error and its source.
+- **Raw HTML:** only an allowlist is rendered: `details` (with `open`), `summary`, `br`,
+  `i`, `b`, `sub`, `sup`, `kbd`, and `a` with an `id` and nothing else (link targets
+  such as `<a id="dn"></a>` in the glossary; the id gets a `user-content-` prefix and
+  `#dn` still finds it). A raw HTML fragment with any other tag or attribute is shown as
+  plain text, so placeholders like `<export date>` stay visible, and the result is
+  sanitised again before rendering, so scripts, styles, frames, event handlers and
+  `javascript:` links cannot get through. `<details>` blocks (column lists, the
+  generated tile lists) stay collapsed until opened.
+- **Long docs:** a "Top" button appears after scrolling; back and forward return to
+  where each page was; `#/doc/<file>#<heading>` lands on the heading, opening any
+  `<details>` around it. A live refresh after an edit keeps the scroll position, open
+  `<details>` and table filters.
 - **Links:** links to other Markdown files in the repo open in the viewer, `http(s)`
   links open in a new tab, and links to other files or folders are shown greyed out.
 - **Lineage panel** on the right of dataset and pipeline pages (above the doc on
-  narrow windows): the direct upstream and downstream
-  docs from the graph (undocumented names are listed but not clickable), plus the gaps
-  that involve the doc: one-sided links and ambiguous, unresolved or wrong-kind
-  references.
+  narrow windows): the direct upstream and downstream docs from the graph with counts,
+  each with its layer marker as in the sidebar (undocumented names have a dashed hollow
+  marker and are not clickable), and the gaps that involve the doc: one-sided links and
+  ambiguous, unresolved or wrong-kind references, each explained with the front-matter
+  field and the file to fix.
 - **Landing page:** the indexer summary (counts, problems) and the repo `README.md`.
 - **Lineage graph** (`#/graph`, in the top bar): see below. There, `/` focuses the
   find box.

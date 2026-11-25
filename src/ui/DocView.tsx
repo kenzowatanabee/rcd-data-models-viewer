@@ -1,12 +1,31 @@
-import { useEffect, useRef, useState } from 'react';
+import { ArrowUp } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 
 import type { GraphResponse } from '../server/api';
 import { fetchDoc, type Loaded } from './api';
-import { headerFields, splitFrontMatter } from './frontMatter';
+import { DocHeader } from './DocHeader';
+import { docHeader } from './docHeader';
+import { splitFrontMatter } from './frontMatter';
 import { LineagePanel } from './LineagePanel';
 import { Markdown } from './Markdown';
+import { OutlineMenu, OutlinePanel, useScrollSpy } from './Outline';
+import {
+  plainTitle,
+  sameOutline,
+  splitTitle,
+  type OutlineItem,
+} from './outline';
+import { githubSlug } from './slug';
 import { StateView } from './State';
+import { useMediaQuery, useReducedMotion } from './storage';
 import { Summary } from './Summary';
+import { useDocScroll } from './useDocScroll';
 
 interface Props {
   file: string;
@@ -17,6 +36,16 @@ interface Props {
   /** Show the indexer summary above the doc (the landing view). */
   landing?: boolean;
 }
+
+/** Wide enough for the doc and a right-hand column side by side. */
+const WIDE = '(min-width: 1200px)';
+/** Outlines with fewer entries than this are not worth a panel. */
+const MIN_OUTLINE = 2;
+/** Height of the sticky "On this page" bar on narrow windows. */
+const STICKY_BAR = 44;
+
+// Last text of each doc, so back/forward paint at once while refetching
+const textCache = new Map<string, string>();
 
 function DocSkeleton() {
   return (
@@ -37,18 +66,60 @@ function DocSkeleton() {
   );
 }
 
+function BackToTop({
+  scrollRef,
+  onTop,
+}: {
+  scrollRef: RefObject<HTMLDivElement | null>;
+  onTop: () => void;
+}) {
+  const [shown, setShown] = useState(false);
+  const reducedMotion = useReducedMotion();
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (scroller === null) return;
+    const update = () =>
+      setShown(scroller.scrollTop > Math.max(600, scroller.clientHeight));
+    update();
+    scroller.addEventListener('scroll', update, { passive: true });
+    return () => scroller.removeEventListener('scroll', update);
+  }, [scrollRef]);
+  if (!shown) return null;
+  return (
+    <button
+      type="button"
+      className="btn back-to-top"
+      onClick={() => {
+        scrollRef.current?.scrollTo({
+          top: 0,
+          behavior: reducedMotion ? 'auto' : 'smooth',
+        });
+        onTop();
+      }}
+      title="Back to top"
+    >
+      <ArrowUp size={14} aria-hidden="true" />
+      Top
+    </button>
+  );
+}
+
 export function DocView({ file, anchor, data, version, landing }: Props) {
   const [loaded, setLoaded] = useState<{
     file: string;
     result: Loaded<string>;
   } | null>(null);
-  const layoutRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const articleRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const wide = useMediaQuery(WIDE);
 
   useEffect(() => {
     let cancelled = false;
     void fetchDoc(file).then((result) => {
-      if (!cancelled) setLoaded({ file, result });
+      if (cancelled) return;
+      if (result.ok) textCache.set(file, result.value);
+      setLoaded({ file, result });
     });
     return () => {
       cancelled = true;
@@ -56,79 +127,117 @@ export function DocView({ file, anchor, data, version, landing }: Props) {
   }, [file, version]);
 
   // A refetch after an edit keeps the old text on screen until the new arrives
-  const current = loaded?.file === file ? loaded.result : null;
+  const cached = textCache.get(file);
+  const current: Loaded<string> | null =
+    loaded?.file === file
+      ? loaded.result
+      : cached !== undefined
+        ? { ok: true, value: cached }
+        : null;
   const text = current?.ok ? current.value : null;
-  const hasText = text !== null;
-
-  // Only on navigation, so a live refresh keeps the reader's place
-  useEffect(() => {
-    if (!hasText) return;
-    if (anchor === null) {
-      // Which of the two scrolls depends on the window width
-      scrollRef.current?.scrollTo(0, 0);
-      layoutRef.current?.scrollTo(0, 0);
-    } else {
-      document.getElementById(anchor)?.scrollIntoView();
-    }
-  }, [file, anchor, hasText]);
 
   useEffect(() => {
     document.title = landing ? 'RCD data models' : `${file} · RCD data models`;
   }, [file, landing]);
 
+  const [outline, setOutline] = useState<OutlineItem[]>([]);
+  const onOutline = useCallback((items: OutlineItem[]) => {
+    setOutline((previous) => (sameOutline(previous, items) ? previous : items));
+  }, []);
+
+  const scrollTo = useDocScroll({
+    scrollRef,
+    rootRef: articleRef,
+    file,
+    anchor,
+    ready: text !== null,
+  });
+
   const node = data?.graph.nodes.find((candidate) => candidate.id === file);
   const doc = text === null ? null : splitFrontMatter(text);
-  const fields = headerFields(doc?.data ?? null);
+  const split = doc === null ? null : splitTitle(doc.body);
+  const title = split?.title ?? null;
+  const titleText = title === null ? null : plainTitle(title);
+  const shownOutline =
+    doc !== null && outline.length >= MIN_OUTLINE ? outline : [];
+  const hasOutline = shownOutline.length > 0;
+
+  const spyOffset = (wide ? 0 : STICKY_BAR) + 40;
+  const active = useScrollSpy(scrollRef, articleRef, shownOutline, spyOffset);
+
+  const lineage = node && data && (
+    <LineagePanel graph={data.graph} node={node} />
+  );
+  const outlineProps = {
+    file,
+    items: shownOutline,
+    active,
+    onSelect: scrollTo,
+  };
+  const aside = wide && (lineage || hasOutline);
 
   return (
-    <div
-      ref={layoutRef}
-      className={node ? 'doc-layout with-lineage' : 'doc-layout'}
-    >
-      <div className="doc-scroll" ref={scrollRef}>
-        <article className="doc">
-          {landing && data && <Summary data={data} />}
-          <header className="doc-header">
-            <div className="doc-path">{file}</div>
-            {fields.length > 0 && (
-              <dl className="fields">
-                {fields.map(({ label, value }) => (
-                  <div key={label}>
-                    <dt>{label}</dt>
-                    <dd>{value}</dd>
-                  </div>
-                ))}
-              </dl>
+    <div className={`doc-layout${aside ? ' with-aside' : ''}`}>
+      <div className="doc-main">
+        <div
+          className={`doc-scroll${wide ? '' : ' is-narrow'}`}
+          ref={scrollRef}
+        >
+          {!wide && lineage && <div className="doc-lineage-top">{lineage}</div>}
+          <article className="doc" ref={articleRef}>
+            {!wide && hasOutline && <OutlineMenu {...outlineProps} />}
+            {landing && data && <Summary data={data} />}
+            {current === null && <DocSkeleton />}
+            {current?.ok === false && (
+              <StateView
+                kind="error"
+                title={`Could not open ${file}`}
+                detail={current.error}
+                actions={
+                  <a className="btn" href="#/">
+                    Go to the start page
+                  </a>
+                }
+              >
+                <p>
+                  The file may have been moved, renamed or deleted in the docs
+                  folder. Pick another doc in the sidebar, or fix the link that
+                  led here.
+                </p>
+              </StateView>
             )}
-            {doc?.error && (
-              <p className="error">
-                Front-matter could not be read: {doc.error}
-              </p>
+            {doc && split && (
+              <>
+                <DocHeader
+                  file={file}
+                  title={title}
+                  titleId={titleText === null ? null : githubSlug(titleText)}
+                  model={docHeader(doc.data)}
+                  graphNode={node?.file ? node.id : null}
+                  frontMatterError={doc.error}
+                  titleRef={titleRef}
+                />
+                <Markdown
+                  file={file}
+                  body={split.body}
+                  title={titleText}
+                  onOutline={onOutline}
+                />
+              </>
             )}
-          </header>
-          {current === null && <DocSkeleton />}
-          {current?.ok === false && (
-            <StateView
-              kind="error"
-              title={`Could not open ${file}`}
-              detail={current.error}
-              actions={
-                <a className="btn" href="#/">
-                  Go to the start page
-                </a>
-              }
-            >
-              <p>
-                The file may have been moved, renamed or deleted in the docs
-                folder. Pick another doc in the sidebar, or fix the link that
-                led here.
-              </p>
-            </StateView>
-          )}
-          {doc && <Markdown file={file} body={doc.body} />}
-        </article>
+          </article>
+        </div>
+        <BackToTop
+          scrollRef={scrollRef}
+          onTop={() => titleRef.current?.focus({ preventScroll: true })}
+        />
       </div>
-      {node && data && <LineagePanel graph={data.graph} node={node} />}
+      {aside && (
+        <aside className="doc-aside" aria-label="Lineage and sections">
+          {lineage}
+          {hasOutline && <OutlinePanel {...outlineProps} />}
+        </aside>
+      )}
     </div>
   );
 }
