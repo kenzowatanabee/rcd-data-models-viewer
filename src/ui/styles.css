@@ -1,0 +1,407 @@
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f8fa;
+  --fg: #1f2328;
+  --muted: #59636e;
+  --border: #d1d9e0;
+  --link: #0969da;
+  --accent-bg: #ddf4ff;
+  --error: #d1242f;
+  --error-bg: #ffebe9;
+  --warn-bg: #fff8c5;
+  --code-bg: rgba(129, 139, 152, 0.15);
+  color-scheme: light dark;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --bg-soft: #151b23;
+    --fg: #e6edf3;
+    --muted: #9198a1;
+    --border: #3d444d;
+    --link: #4493f8;
+    --accent-bg: #1c2d41;
+    --error: #ff7b72;
+    --error-bg: #2d1517;
+    --warn-bg: #2e2a14;
+    --code-bg: rgba(101, 108, 118, 0.2);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+pre {
+  font-family: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.875em;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* Sidebar */
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-soft);
+  font-size: 0.875rem;
+}
+
+.home-link {
+  display: block;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--fg);
+  margin-bottom: 8px;
+}
+
+.filter {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+
+.nav-group h2 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 16px 0 4px;
+}
+
+.nav-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-group a {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--fg);
+}
+
+.nav-group a[aria-current='page'] {
+  background: var(--accent-bg);
+  font-weight: 600;
+}
+
+.nav-label {
+  overflow-wrap: anywhere;
+}
+
+.count {
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Doc page */
+
+main {
+  min-width: 0;
+  padding: 16px 32px 64px;
+}
+
+.doc-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+}
+
+@media (min-width: 1280px) {
+  .doc-page.with-lineage {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .lineage {
+    position: sticky;
+    top: 16px;
+    align-self: start;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+}
+
+/* Below the wide breakpoint the panel goes first, so lineage is not hidden
+   under a long column list */
+@media (max-width: 1279px) {
+  .lineage {
+    order: -1;
+  }
+}
+
+.doc {
+  min-width: 0;
+  max-width: 1100px;
+}
+
+.doc-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.doc-path {
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.fields,
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin: 8px 0 0;
+}
+
+.fields div,
+.stats div {
+  display: flex;
+  gap: 6px;
+}
+
+.fields dt,
+.stats dt {
+  color: var(--muted);
+}
+
+.fields dd,
+.stats dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.summary {
+  margin-bottom: 24px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-soft);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error {
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--error);
+  background: var(--error-bg);
+}
+
+/* Markdown body */
+
+.markdown h1,
+.markdown h2 {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3em;
+}
+
+.markdown code {
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: var(--code-bg);
+}
+
+.markdown pre {
+  padding: 12px;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: var(--bg-soft);
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.table-scroll table {
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table-scroll th,
+.table-scroll td {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.table-scroll th {
+  background: var(--bg-soft);
+  text-align: left;
+}
+
+.markdown blockquote {
+  margin: 0;
+  padding: 0 1em;
+  border-left: 4px solid var(--border);
+  color: var(--muted);
+}
+
+.external-link::after {
+  content: ' ↗';
+  font-size: 0.8em;
+}
+
+.inert-link {
+  color: var(--muted);
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+.mermaid {
+  margin: 1em 0;
+}
+
+.diagram-toggle {
+  display: block;
+  margin-left: auto;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-soft);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.mermaid-diagram {
+  overflow-x: auto;
+}
+
+.mermaid-diagram svg {
+  height: auto;
+}
+
+.mermaid-diagram.fit svg {
+  max-width: 100%;
+}
+
+.mermaid-message {
+  white-space: pre-wrap;
+}
+
+.mermaid-pending {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.mermaid-error {
+  padding: 8px 12px;
+  border: 1px solid var(--error);
+  border-radius: 6px;
+  background: var(--error-bg);
+}
+
+/* Lineage panel */
+
+.lineage {
+  font-size: 0.875rem;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-soft);
+}
+
+.lineage h2 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.lineage h3 {
+  font-size: 0.875rem;
+  margin: 12px 0 4px;
+}
+
+.lineage ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.lineage li {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.kind {
+  display: inline-block;
+  min-width: 4.5em;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.node-external {
+  color: var(--muted);
+}
+
+.gaps li {
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--warn-bg);
+  margin-bottom: 4px;
+}
+
+.gaps code {
+  margin: 0 2px;
+}
