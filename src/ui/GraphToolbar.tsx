@@ -208,6 +208,9 @@ function ViewOptions({
           ref={popoverRef}
           id={id}
           className="graph-popover"
+          // Focusable, so a click on its text keeps focus inside: otherwise focus
+          // jumps to the page behind and the blur handler below closes the menu
+          tabIndex={-1}
           role="dialog"
           aria-label="View options"
           onKeyDown={(event) => {

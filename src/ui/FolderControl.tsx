@@ -188,6 +188,9 @@ export function FolderControl({ docsPath, placement, onClone }: Props) {
           ref={popoverRef}
           id={id}
           className="git-popover folder-popover"
+          // Focusable, so a click on its text keeps focus inside: otherwise focus
+          // jumps to the page behind and the blur handler below closes the menu
+          tabIndex={-1}
           style={place}
           role="dialog"
           aria-label="Docs folder"
