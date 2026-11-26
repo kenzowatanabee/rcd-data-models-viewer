@@ -1,11 +1,17 @@
-import { FolderOpen } from 'lucide-react';
+import { FolderOpen, GitBranch } from 'lucide-react';
 import { useState } from 'react';
 
 import type { FolderState, OpenFolderResult } from '../desktop/bridge';
 import { desktop } from './desktop';
 
 /** The desktop app's first screen, until a docs folder is open. */
-export function Welcome({ state }: { state: FolderState }) {
+export function Welcome({
+  state,
+  onClone,
+}: {
+  state: FolderState;
+  onClone: () => void;
+}) {
   const [error, setError] = useState<string | null>(state.problem);
   const [busy, setBusy] = useState(false);
   if (desktop === null) return null;
@@ -34,7 +40,8 @@ export function Welcome({ state }: { state: FolderState }) {
         <p>
           Choose your local clone of the <code>rcd-data-models</code> repo: the
           folder that contains <code>docs/datasets</code> and{' '}
-          <code>docs/pipelines</code>. The app remembers it for next time.
+          <code>docs/pipelines</code>. The app remembers it for next time. No
+          clone yet? Clone it from GitHub here.
         </p>
         {error !== null && (
           <p className="state-detail welcome-error" role="alert">
@@ -49,6 +56,15 @@ export function Welcome({ state }: { state: FolderState }) {
             onClick={() => void run(() => api.chooseFolder())}
           >
             Choose folder…
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={busy}
+            onClick={onClone}
+          >
+            <GitBranch size={14} aria-hidden="true" />
+            Clone from GitHub…
           </button>
         </div>
         {state.recent.length > 0 && (

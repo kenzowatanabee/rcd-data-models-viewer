@@ -877,3 +877,256 @@ button.docs-folder:hover {
   background: var(--color-hover);
   color: var(--color-text);
 }
+
+/* Desktop app: git in the top bar */
+
+.git-menu {
+  position: relative;
+  min-width: 0;
+}
+
+.git-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  max-width: 260px;
+  padding: var(--space-1) var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.git-indicator:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.git-indicator > svg,
+.git-indicator .git-count svg {
+  flex-shrink: 0;
+}
+
+.git-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.git-tone-warning .git-note,
+.git-tone-warning > svg {
+  color: var(--color-warning);
+}
+
+.git-note {
+  white-space: nowrap;
+}
+
+.git-count {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+
+.git-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+}
+
+.git-spinner {
+  width: 12px;
+  height: 12px;
+}
+
+.git-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 360px;
+  max-width: calc(100vw - var(--space-4));
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-popover);
+  font-size: var(--text-sm);
+}
+
+.git-popover p {
+  margin: 0;
+}
+
+.git-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.git-facts dt {
+  color: var(--color-text-muted);
+}
+
+.git-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.git-remote {
+  overflow-wrap: anywhere;
+}
+
+.git-actions,
+.clone-buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.clone-buttons {
+  justify-content: flex-end;
+}
+
+.git-running {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.git-live:empty {
+  display: none;
+}
+
+.git-result {
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.git-result p {
+  margin: 0;
+}
+
+.git-result-ok {
+  background: var(--color-success-subtle);
+}
+
+.git-result-refused {
+  background: var(--color-warning-subtle);
+}
+
+.git-result-failed {
+  background: var(--color-danger-subtle);
+}
+
+.git-files {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+}
+
+.git-detail {
+  max-height: 160px;
+  margin: var(--space-1) 0 0;
+  overflow: auto;
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.git-why,
+.git-quiet {
+  color: var(--color-text-muted);
+}
+
+.git-auto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Desktop app: clone dialog */
+
+.clone-dialog {
+  width: 560px;
+}
+
+.clone-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.clone-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-weight: var(--weight-semibold);
+}
+
+.clone-field .input {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-weight: normal;
+}
+
+.clone-field .input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.clone-help {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: normal;
+}
+
+.clone-invalid {
+  color: var(--color-danger);
+}
+
+.clone-ok {
+  color: var(--color-success);
+}
+
+.clone-destination {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: normal;
+}
+
+.clone-destination code {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  overflow-wrap: anywhere;
+}
+
+.clone-status:empty {
+  display: none;
+}
+
+@media (max-width: 1099px) {
+  .git-label,
+  .git-note {
+    display: none;
+  }
+}

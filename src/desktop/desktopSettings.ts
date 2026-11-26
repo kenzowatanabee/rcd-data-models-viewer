@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { DEFAULT_AUTO_FETCH_MINUTES, isAutoFetchChoice } from './gitPolicy';
 import type { Rect } from './windowBounds';
 
 export interface WindowState extends Rect {
@@ -15,6 +16,8 @@ export interface DesktopSettings {
   window: WindowState | null;
   /** Reused so the page keeps its origin, and so its local storage. */
   port: number | null;
+  /** Background fetch interval in minutes; 0 turns it off. */
+  autoFetchMinutes: number;
 }
 
 export const MAX_RECENT_FOLDERS = 5;
@@ -24,6 +27,7 @@ export const DEFAULT_SETTINGS: DesktopSettings = {
   recentFolders: [],
   window: null,
   port: null,
+  autoFetchMinutes: DEFAULT_AUTO_FETCH_MINUTES,
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -76,6 +80,9 @@ export function parseSettings(text: string | null): DesktopSettings {
       port <= 65535
         ? port
         : null,
+    autoFetchMinutes: isAutoFetchChoice(raw.autoFetchMinutes)
+      ? raw.autoFetchMinutes
+      : DEFAULT_AUTO_FETCH_MINUTES,
   };
 }
 

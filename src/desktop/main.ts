@@ -31,9 +31,13 @@ import {
   writeSettingsFile,
   type DesktopSettings,
 } from './desktopSettings';
+import { createGitController } from './gitController';
+import { AUTO_FETCH_CHOICES } from './gitPolicy';
 import {
   IPC,
+  cloneUrlArg,
   folderArg,
+  minutesArg,
   isTrustedSender,
   noArgs,
   pointArg,
@@ -77,6 +81,42 @@ let win: BrowserWindow | null = null;
 let current: string | null = null;
 let problem: string | null = null;
 let stopped = false;
+
+const git = createGitController({
+  folder: () => current,
+  focused: () => win !== null && !win.isDestroyed() && win.isFocused(),
+  publish: (state) => {
+    refreshMenu();
+    if (win !== null && !win.isDestroyed()) {
+      win.webContents.send(IPC.gitState, state);
+    }
+  },
+  progress: (progress) => {
+    if (win !== null && !win.isDestroyed()) {
+      win.webContents.send(IPC.gitCloneProgress, progress);
+    }
+  },
+  chooseDirectory: async () => {
+    const options: OpenDialogOptions = {
+      title: 'Choose the folder to clone into',
+      buttonLabel: 'Choose',
+      properties: ['openDirectory', 'createDirectory'],
+      ...(current === null ? {} : { defaultPath: path.dirname(current) }),
+    };
+    const result =
+      win === null
+        ? await dialog.showOpenDialog(options)
+        : await dialog.showOpenDialog(win, options);
+    const [folder] = result.filePaths;
+    return result.canceled || folder === undefined ? null : folder;
+  },
+  openFolder: (folder) => openFolder(folder),
+  docsChanged: () => server?.refreshDocs(),
+  autoFetchMinutes: () => settings.autoFetchMinutes,
+  saveAutoFetchMinutes: (minutes) =>
+    save({ ...settings, autoFetchMinutes: minutes }),
+  hooksDir: path.join(app.getPath('userData'), 'git-empty-hooks'),
+});
 
 const appOrigin = () => (server === null ? '' : new URL(server.url).origin);
 
@@ -141,6 +181,7 @@ async function openFolder(folder: string): Promise<OpenFolderResult> {
   current = folder;
   problem = null;
   server?.setRepo(folder);
+  git.folderChanged();
   save({
     ...settings,
     docsPath: folder,
@@ -217,6 +258,17 @@ function folderActions(): FolderActions {
     copyPath: () => {
       if (current !== null) clipboard.writeText(current);
     },
+    git: {
+      canFetch: git.canFetch(),
+      canPull: git.canPull(),
+      // Results land in the git state, which the top bar's popover shows
+      fetch: () => void git.fetch(),
+      pull: () => void git.pull(),
+      clone: () => {
+        focusWindow();
+        win?.webContents.send(IPC.gitOpenClone, null);
+      },
+    },
   };
 }
 
@@ -256,6 +308,18 @@ function registerIpc(): void {
   handle(IPC.openRecentFolder, folderArg, openRecent);
   handle(IPC.revealFolder, noArgs, () => folderActions().reveal());
   handle(IPC.copyFolderPath, noArgs, () => folderActions().copyPath());
+  handle(IPC.gitGetState, noArgs, () => git.state());
+  handle(IPC.gitRefresh, noArgs, () => git.refresh());
+  handle(IPC.gitFetch, noArgs, () => git.fetch());
+  handle(IPC.gitPull, noArgs, () => git.pull());
+  handle(IPC.gitCancel, noArgs, () => git.cancel());
+  handle(IPC.gitChooseCloneParent, noArgs, () => git.chooseCloneParent());
+  handle(IPC.gitClone, cloneUrlArg, (url) => git.clone(url));
+  handle(
+    IPC.gitSetAutoFetch,
+    (raw) => minutesArg(raw, AUTO_FETCH_CHOICES),
+    (minutes) => git.setAutoFetch(minutes),
+  );
   handle(IPC.showFolderMenu, pointArg, (point) => {
     if (win === null) return;
     Menu.buildFromTemplate(folderMenuTemplate(folderActions())).popup({
@@ -326,6 +390,8 @@ function createWindow(): void {
   win.on('page-title-updated', (event) => event.preventDefault());
   updateTitle();
   win.once('ready-to-show', () => win?.show());
+  // Commits made in another tool show up when the user comes back
+  win.on('focus', () => void git.onFocus());
   win.on('close', saveWindow);
   win.on('closed', () => {
     win = null;
@@ -398,6 +464,7 @@ async function main(): Promise<void> {
   registerIpc();
   refreshMenu();
   createWindow();
+  await git.init();
 
   app.on('activate', () => {
     if (win === null) createWindow();
@@ -411,6 +478,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', (event) => {
   saveWindow();
+  git.dispose();
   if (server === null || stopped) return;
   event.preventDefault();
   stopped = true;

@@ -8,7 +8,24 @@ export interface FolderActions {
   openRecent: (folder: string) => void;
   reveal: () => void;
   copyPath: () => void;
+  git: GitMenuActions;
 }
+
+export interface GitMenuActions {
+  /** Fetch is possible now: a repo with a remote, nothing running. */
+  canFetch: boolean;
+  /** Pull would fast-forward (the same rule as the popover's button). */
+  canPull: boolean;
+  fetch: () => void;
+  pull: () => void;
+  clone: () => void;
+}
+
+/** Mod+Shift: the viewer's own keys are unmodified letters and mod+K. */
+export const GIT_ACCELERATORS = {
+  fetch: 'CmdOrCtrl+Shift+F',
+  pull: 'CmdOrCtrl+Shift+P',
+} as const;
 
 export function revealLabel(platform: string): string {
   if (platform === 'darwin') return 'Reveal in Finder';
@@ -35,6 +52,7 @@ export function folderMenuTemplate(
   const hasFolder = actions.current !== null;
   return [
     { label: 'Open Another Folder…', click: actions.openFolder },
+    { label: 'Clone Repository…', click: actions.git.clone },
     { type: 'separator' },
     { label: 'Recent Folders', enabled: false },
     ...recentItems(actions),
@@ -51,7 +69,7 @@ export function folderMenuTemplate(
 /**
  * The application menu. Only modified shortcuts appear here; the viewer's
  * own keys (mod+K, /, [, ], g sequences, j, k, m, t, f, 0, ?, Alt+arrows)
- * stay with the page.
+ * stay with the page. Git uses mod+Shift+F and mod+Shift+P.
  */
 export function appMenuTemplate(
   appName: string,
@@ -88,6 +106,7 @@ export function appMenuTemplate(
           click: actions.openFolder,
         },
         { label: 'Open Recent', submenu: recentItems(actions) },
+        { label: 'Clone Repository…', click: actions.git.clone },
         { type: 'separator' },
         {
           label: `${revealLabel(actions.platform)}`,
@@ -127,6 +146,25 @@ export function appMenuTemplate(
         { role: 'zoomOut' },
         { type: 'separator' },
         { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Repository',
+      submenu: [
+        {
+          label: 'Fetch',
+          accelerator: GIT_ACCELERATORS.fetch,
+          enabled: actions.git.canFetch,
+          click: actions.git.fetch,
+        },
+        {
+          label: 'Pull (Fast-Forward Only)',
+          accelerator: GIT_ACCELERATORS.pull,
+          enabled: actions.git.canPull,
+          click: actions.git.pull,
+        },
+        { type: 'separator' },
+        { label: 'Clone Repository…', click: actions.git.clone },
       ],
     },
     { role: 'windowMenu' },
