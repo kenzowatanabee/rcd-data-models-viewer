@@ -41,6 +41,11 @@ export interface DocsApi {
   plugin: Plugin;
   /** Serves another folder (null: none) from the next request on. */
   setRepo: (repo: string | null) => void;
+  /**
+   * Drops the cached index and tells the page to reload, as after an edit.
+   * The desktop app calls it after a pull, without waiting on the watcher.
+   */
+  refresh: () => void;
 }
 
 const NO_REPO = 'No docs folder is open';
@@ -55,6 +60,7 @@ export function createDocsApi(initialRepo: string | null): DocsApi {
   let cached: GraphResponse | null = null;
   let cachedHeadings: HeadingsResponse | null = null;
   let watcher: ViteDevServer['watcher'] | null = null;
+  let hot: ViteDevServer['ws'] | null = null;
 
   const graphResponse = (): GraphResponse => {
     if (root === null) throw new Error(NO_REPO);
@@ -166,6 +172,7 @@ export function createDocsApi(initialRepo: string | null): DocsApi {
       });
 
       watcher = server.watcher;
+      hot = server.ws;
       setRepo(root);
       const onChange = (file: string) => {
         if (
@@ -195,5 +202,11 @@ export function createDocsApi(initialRepo: string | null): DocsApi {
       server.watcher.on('unlink', onChange);
     },
   };
-  return { plugin, setRepo };
+  const refresh = () => {
+    cached = null;
+    cachedHeadings = null;
+    const payload: DocsChangedPayload = { files: [] };
+    hot?.send({ type: 'custom', event: DOCS_CHANGED_EVENT, data: payload });
+  };
+  return { plugin, setRepo, refresh };
 }

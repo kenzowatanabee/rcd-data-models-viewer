@@ -47,6 +47,7 @@ describe('parseSettings', () => {
           ],
           window: { x: 10.4, y: -20, width: 1200, height: 800, maximized: 1 },
           port: 51234,
+          autoFetchMinutes: 30,
         }),
       ),
     ).toEqual({
@@ -54,7 +55,18 @@ describe('parseSettings', () => {
       recentFolders: ['/docs', '/a', '/b', '/c', '/d'],
       window: { x: 10, y: -20, width: 1200, height: 800, maximized: false },
       port: 51234,
+      autoFetchMinutes: 30,
     });
+  });
+
+  it('keeps only an offered background fetch interval', () => {
+    const minutes = (value: unknown) =>
+      parseSettings(JSON.stringify({ autoFetchMinutes: value }))
+        .autoFetchMinutes;
+    expect(minutes(0)).toBe(0);
+    expect(minutes(5)).toBe(5);
+    expect(minutes(7)).toBe(DEFAULT_SETTINGS.autoFetchMinutes);
+    expect(minutes('10')).toBe(DEFAULT_SETTINGS.autoFetchMinutes);
   });
 });
 

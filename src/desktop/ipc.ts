@@ -12,6 +12,20 @@ export const IPC = {
   showFolderMenu: 'folder:menu',
   /** Main to page: another folder opened. */
   folderChanged: 'folder:changed',
+  gitGetState: 'git:get-state',
+  gitRefresh: 'git:refresh',
+  gitFetch: 'git:fetch',
+  gitPull: 'git:pull',
+  gitCancel: 'git:cancel',
+  gitChooseCloneParent: 'git:choose-clone-parent',
+  gitClone: 'git:clone',
+  gitSetAutoFetch: 'git:set-auto-fetch',
+  /** Main to page: the git state changed. */
+  gitState: 'git:state',
+  /** Main to page: clone progress. */
+  gitCloneProgress: 'git:clone-progress',
+  /** Main to page: the menu asked for the clone dialog. */
+  gitOpenClone: 'git:open-clone',
 } as const;
 
 /** A parsed argument list, or null when it must be refused. */
@@ -31,6 +45,31 @@ export function folderArg(args: readonly unknown[]): Parsed<string> {
   }
   if (value.includes('\0')) return null;
   return { value };
+}
+
+const MAX_URL = 2048;
+
+/** One string that may be a clone URL; `parseCloneUrl` judges it after. */
+export function cloneUrlArg(args: readonly unknown[]): Parsed<string> {
+  if (args.length !== 1) return null;
+  const [value] = args;
+  if (typeof value !== 'string' || value === '' || value.length > MAX_URL) {
+    return null;
+  }
+  if (value.includes('\0')) return null;
+  return { value };
+}
+
+/** One of the background fetch intervals offered, in minutes. */
+export function minutesArg(
+  args: readonly unknown[],
+  choices: readonly number[],
+): Parsed<number> {
+  if (args.length !== 1) return null;
+  const [value] = args;
+  return typeof value === 'number' && choices.includes(value)
+    ? { value }
+    : null;
 }
 
 /** One `{ x, y }` with finite coordinates inside a sane window. */

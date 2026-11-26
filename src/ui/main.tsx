@@ -13,6 +13,7 @@ import { createRoot } from 'react-dom/client';
 
 import type { FolderState } from '../desktop/bridge';
 import { App } from './App';
+import { CloneDialog } from './CloneDialog';
 import { desktop, resetSessionFor } from './desktop';
 import { ShortcutProvider } from './ShortcutLayer';
 import { ThemeProvider } from './theme';
@@ -21,6 +22,12 @@ import { Welcome } from './Welcome';
 /** The viewer; in the desktop app, the welcome screen until a folder opens. */
 function Root() {
   const [folder, setFolder] = useState<FolderState | null>(null);
+  const [cloning, setCloning] = useState(false);
+  useEffect(() => {
+    if (desktop === null) return;
+    // The menus' "Clone Repository…"
+    return desktop.onOpenClone(() => setCloning(true));
+  }, []);
   useEffect(() => {
     if (desktop === null) return;
     let live = true;
@@ -39,7 +46,16 @@ function Root() {
   }, []);
   if (desktop === null) return <App />;
   if (folder === null) return null;
-  return folder.current === null ? <Welcome state={folder} /> : <App />;
+  return (
+    <>
+      {folder.current === null ? (
+        <Welcome state={folder} onClone={() => setCloning(true)} />
+      ) : (
+        <App />
+      )}
+      {cloning && <CloneDialog onClose={() => setCloning(false)} />}
+    </>
+  );
 }
 
 const root = document.getElementById('root');

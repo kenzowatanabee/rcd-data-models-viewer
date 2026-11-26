@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { folderArg, isTrustedSender, noArgs, pointArg } from './ipc';
+import {
+  cloneUrlArg,
+  folderArg,
+  isTrustedSender,
+  minutesArg,
+  noArgs,
+  pointArg,
+} from './ipc';
 
 describe('IPC argument checks', () => {
   it('noArgs takes nothing', () => {
@@ -34,6 +41,31 @@ describe('IPC argument checks', () => {
       [{ x: '1', y: 1 }],
     ]) {
       expect(pointArg(args)).toBeNull();
+    }
+  });
+});
+
+describe('git arguments', () => {
+  it('cloneUrlArg takes one bounded string', () => {
+    expect(cloneUrlArg(['https://github.com/o/r'])).toEqual({
+      value: 'https://github.com/o/r',
+    });
+    for (const args of [
+      [],
+      [''],
+      [1],
+      ['a', 'b'],
+      ['a\0b'],
+      ['x'.repeat(3000)],
+    ]) {
+      expect(cloneUrlArg(args)).toBeNull();
+    }
+  });
+
+  it('minutesArg takes one offered choice', () => {
+    expect(minutesArg([10], [0, 10])).toEqual({ value: 10 });
+    for (const args of [[], [7], ['10'], [10, 0], [Number.NaN]]) {
+      expect(minutesArg(args, [0, 10])).toBeNull();
     }
   });
 });

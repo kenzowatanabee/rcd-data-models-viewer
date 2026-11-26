@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { desktop } from './desktop';
+import { GitIndicator } from './GitIndicator';
 import { folderName, type Density, type ThemePreference } from './settings';
 import { IS_MAC, Keys } from './ShortcutLayer';
 import { useTheme } from './theme';
@@ -176,6 +177,7 @@ export function TopBar({
             <span>{folderName(docsPath)}</span>
           </button>
         ))}
+      {docsPath !== null && desktop !== null && <GitIndicator />}
       <span className="topbar-divider" aria-hidden="true" />
       <div
         className="segmented segmented-icons"

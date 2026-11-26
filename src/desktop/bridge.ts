@@ -1,6 +1,14 @@
 // The API the preload script exposes to the page as `window.rcdDesktop`.
 // Types only, so the UI can import it without pulling in Electron.
 
+import type {
+  ActionResult,
+  CloneParentResult,
+  CloneProgress,
+  CloneResult,
+  GitState,
+} from './gitTypes';
+
 export interface FolderState {
   /** The docs folder being shown, or null on the welcome screen. */
   current: string | null;
@@ -29,4 +37,23 @@ export interface DesktopApi {
   showFolderMenu: (point: { x: number; y: number }) => Promise<void>;
   /** Called after another folder opened; returns an unsubscribe function. */
   onFolderChanged: (listener: (state: FolderState) => void) => () => void;
+
+  // Git: a fixed set of operations on the open docs folder only
+  gitGetState: () => Promise<GitState>;
+  /** Re-reads the status (refused quietly while another operation runs). */
+  gitRefresh: () => Promise<GitState>;
+  gitFetch: () => Promise<ActionResult>;
+  /** Fetch, then fast-forward only. */
+  gitPull: () => Promise<ActionResult>;
+  /** Stops a running clone or fetch. */
+  gitCancel: () => Promise<void>;
+  /** The native folder dialog for the folder to clone into. */
+  gitChooseCloneParent: () => Promise<CloneParentResult>;
+  /** Clones `url` into the chosen folder, then opens it. */
+  gitClone: (url: string) => Promise<CloneResult>;
+  /** Background fetch interval in minutes, 0 for off. */
+  gitSetAutoFetch: (minutes: number) => Promise<GitState>;
+  onGitState: (listener: (state: GitState) => void) => () => void;
+  onCloneProgress: (listener: (progress: CloneProgress) => void) => () => void;
+  onOpenClone: (listener: () => void) => () => void;
 }

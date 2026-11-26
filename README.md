@@ -68,7 +68,8 @@ Deleting it resets the app; a damaged file is ignored. `--user-data-dir=<folder>
 How it is kept safe:
 
 - The window's page is sandboxed with context isolation and no Node.js: it reaches the
-  app only through a small preload API (choose, open, reveal and copy the folder), and
+  app only through a small preload API (choose, open, reveal and copy the folder; the
+  git status, fetch, pull and clone described below), and
   the main process checks every call's arguments and that it comes from the app's own
   page.
 - The local server listens on `127.0.0.1` only, on a port picked once and then reused (so
@@ -82,8 +83,84 @@ How it is kept safe:
   hash, and nothing from the network. Styles allow inline (Vite injects CSS that way and
   Mermaid's SVG carries its own styles).
 
-Not built yet: an installer or packaged app, auto-update, signing, and git (fetch, pull,
-clone) from inside the app.
+Not built yet: an installer or packaged app, auto-update and signing.
+
+#### Git: status, fetch, pull and clone
+
+The desktop app (not `pnpm start` in a browser) can keep the docs clone up to date and
+make a new clone. It runs the git installed on your computer; it does exactly four
+things and nothing else:
+
+- **Status**, in the top bar next to the folder name: the branch, `↓ n` when the
+  upstream has commits you do not have, `↑ n` when you have commits it does not, and a
+  dot when there are uncommitted local changes. "Not a git repository", "no upstream",
+  "Git not installed" and an operation in progress (merge, rebase...) are shown there
+  too. Click it for the details: branch → upstream, the counts, local changes (counts
+  only), when the repo was last fetched, the remote (any user name or token removed),
+  and the work tree when the docs folder is a subfolder of it.
+- **Fetch** (popover button, **Repository → Fetch**, ⌘⇧F / Ctrl+Shift+F):
+  `git fetch --prune` from the branch's remote (`origin` when it has none).
+- **Pull** (popover, **Repository → Pull**, ⌘⇧P / Ctrl+Shift+P): a fetch, then a
+  fast-forward only (`git merge --ff-only @{upstream}`). It is enabled only when that
+  would fast-forward; otherwise the popover says why. Uncommitted edits to files the
+  pull does not touch are kept. After a pull the open page, the index and the graph
+  reload by themselves, and the popover says how many commits and files came in.
+- **Clone** ("Clone from GitHub…" on the welcome screen, "Clone Repository…" in the
+  folder menu, **File** and **Repository**): a `https://github.com/owner/repo` or
+  `git@github.com:owner/repo` URL, checked as you type, cloned into a new folder named
+  after the repository inside a folder you choose. An existing folder is never used.
+  Progress is shown and the clone can be canceled (the half-made folder is removed).
+  The cloned folder then opens.
+
+What it never does: commit, push, merge (other than the fast-forward), rebase, reset,
+stash, check out or switch branches, clean, change git config, or run hooks. Use your
+usual git tool (terminal, GitHub Desktop, your editor) for all of that; the app's
+messages say so when a pull is refused. Only `github.com` can be cloned from.
+
+**Sign-in.** The app never asks for, stores or shows a password or token: git uses
+your own credential helper (Git Credential Manager on Windows, the macOS keychain, or
+your SSH key). If GitHub has never been signed in to on this computer, do it once
+with your usual git tool (for example run `git fetch` in the clone from a terminal),
+then use the app. A Fetch, Pull or Clone you start may open the credential manager's
+own sign-in window; the automatic check never does. Git never waits for typed input
+(`GIT_TERMINAL_PROMPT=0`, no terminal), and every command has a time limit.
+
+**Automatic check.** While the window is focused, the app fetches in the background
+at most every 10 minutes (choose 5, 10, 30, 60 minutes or never in the popover; saved
+as `autoFetchMinutes` in `settings.json`). It never runs while another git operation
+is running and never shows a pop-up: a failure is one quiet line in the popover. The
+status is also refreshed when the window gains focus and after docs change on disk.
+
+**Safety rules.** Only a fixed list of git commands with fixed arguments exists; the
+page can pick one but never pass arguments, and works only on the open docs folder.
+Clone URLs with another host, scheme (`file://`, `ext::`), a local path, a leading
+`-` or a user name or token are refused before git runs, and `--` separates options
+from the URL and folder. One git operation runs at a time. Every command runs with
+`LC_ALL=C` and these settings, which win over the repository's own `.git/config`
+(a repository's config can otherwise make even `git status` start a program):
+`core.fsmonitor=false`, `core.hooksPath` set to an empty folder (no hooks),
+`core.askPass=` (no prompt program), `protocol.ext.allow=never`,
+`submodule.recurse=false`. If the repository's own config sets something that would
+start a program and cannot be overridden that way (`core.sshCommand`,
+`core.gitProxy`, a `credential` helper, `remote.*.uploadpack`, a non-LFS `filter`),
+the app refuses to run git there and says which setting. Git's own "dubious
+ownership" (`safe.directory`) refusal is reported, never bypassed. Messages are
+scrubbed of anything that looks like a credential before they are shown or logged.
+
+Troubleshooting:
+
+| Message                                       | What to do                                                                                                |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Git not installed                             | macOS: `xcode-select --install` or `brew install git`; Windows: install Git for Windows. Restart the app. |
+| GitHub did not accept your sign-in            | Fetch once from a terminal or GitHub Desktop so the credential manager remembers you.                     |
+| Couldn't reach GitHub                         | Check the connection; the automatic check tries again later.                                              |
+| Would overwrite your uncommitted changes      | Commit, stash or undo the listed files with your usual tool, then Pull.                                   |
+| Diverged / your branch has commits to push    | Push, or merge/rebase with your usual tool. The app only fast-forwards.                                   |
+| Detached HEAD / no upstream                   | Check out a branch that tracks one (`git switch main`).                                                   |
+| A merge/rebase is in progress                 | Finish or abort it with your usual tool.                                                                  |
+| Another git program is working (lock file)    | Wait for it. If none is running, a crashed one left `.git/index.lock`: check before removing it.          |
+| Not trusted / dubious ownership               | Run the `git config --global --add safe.directory …` command git suggests, if the folder is yours.        |
+| Repository's own settings can start a program | Inspect `.git/config` in a terminal.                                                                      |
 
 What it shows:
 

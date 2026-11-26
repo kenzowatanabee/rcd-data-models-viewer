@@ -29,6 +29,8 @@ export interface DocsServer {
   url: string;
   port: number;
   setRepo: (repo: string | null) => void;
+  /** Reloads the index and the open doc in the page. */
+  refreshDocs: () => void;
   close: () => Promise<void>;
 }
 
@@ -75,6 +77,7 @@ export async function startDocsServer(
     url: `http://${options.host}:${boundPort}`,
     port: boundPort,
     setRepo: api.setRepo,
+    refreshDocs: api.refresh,
     close: () => vite.close(),
   };
 }
