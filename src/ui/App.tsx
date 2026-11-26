@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GraphResponse, HeadingsResponse } from '../server/api';
 import { fetchGraph, fetchHeadings, useDocsVersion } from './api';
 import { ModalDialog } from './Dialog';
+import { desktop } from './desktop';
 import { DocView } from './DocView';
 import { GraphPage } from './GraphPage';
 import { healthReport, issueCount, issuesByFile } from './health';
@@ -473,13 +474,34 @@ export function App() {
                 centred
                 title="Could not load the docs index"
                 detail={graphError}
-                actions={retry}
+                actions={
+                  desktop === null ? (
+                    retry
+                  ) : (
+                    <>
+                      {retry}
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => void desktop?.chooseFolder()}
+                      >
+                        Choose another folder…
+                      </button>
+                    </>
+                  )
+                }
               >
                 <p>
-                  Check that the folder given to <code>pnpm start</code> is a
-                  clone of the docs repo with <code>docs/datasets</code> and{' '}
-                  <code>docs/pipelines</code>, and that its front-matter parses.
-                  Then try again.
+                  Check that the folder
+                  {desktop === null && (
+                    <>
+                      {' '}
+                      given to <code>pnpm start</code>
+                    </>
+                  )}{' '}
+                  is a clone of the docs repo with <code>docs/datasets</code>{' '}
+                  and <code>docs/pipelines</code>, and that its front-matter
+                  parses. Then try again.
                 </p>
               </StateView>
             ) : route.view === 'graph' ? (

@@ -14,6 +14,7 @@ import {
   Waypoints,
 } from 'lucide-react';
 
+import { desktop } from './desktop';
 import { folderName, type Density, type ThemePreference } from './settings';
 import { IS_MAC, Keys } from './ShortcutLayer';
 import { useTheme } from './theme';
@@ -150,12 +151,31 @@ export function TopBar({
         <span className="palette-trigger-label">Go to…</span>
         <Keys chord="mod+k" />
       </button>
-      {docsPath !== null && (
-        <span className="docs-folder" title={`Docs folder: ${docsPath}`}>
-          <Folder size={14} aria-hidden="true" />
-          <span>{folderName(docsPath)}</span>
-        </span>
-      )}
+      {docsPath !== null &&
+        (desktop === null ? (
+          <span className="docs-folder" title={`Docs folder: ${docsPath}`}>
+            <Folder size={14} aria-hidden="true" />
+            <span>{folderName(docsPath)}</span>
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="docs-folder"
+            title={`Docs folder: ${docsPath}`}
+            aria-label={`Docs folder: ${folderName(docsPath)}`}
+            aria-haspopup="menu"
+            onClick={(event) => {
+              const box = event.currentTarget.getBoundingClientRect();
+              void desktop?.showFolderMenu({
+                x: Math.max(0, box.left),
+                y: Math.max(0, box.bottom),
+              });
+            }}
+          >
+            <Folder size={14} aria-hidden="true" />
+            <span>{folderName(docsPath)}</span>
+          </button>
+        ))}
       <span className="topbar-divider" aria-hidden="true" />
       <div
         className="segmented segmented-icons"

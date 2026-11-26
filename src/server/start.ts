@@ -1,12 +1,9 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import react from '@vitejs/plugin-react';
-import { createServer } from 'vite';
-
 import { buildGraph } from '../indexer/buildGraph';
-import { docsApiPlugin } from './docsApiPlugin';
 import { checkDocsRepo } from './docsRepo';
+import { startDocsServer } from './docsServer';
 import { DEFAULT_DOCS_PATH, parseStartArgs } from './startArgs';
 
 const projectRoot = fileURLToPath(new URL('../..', import.meta.url));
@@ -34,18 +31,16 @@ async function main(): Promise<void> {
   // Fail at start, not on the first request, if the docs cannot be indexed
   const graph = buildGraph(repo);
 
-  const server = await createServer({
-    configFile: false,
-    root: path.join(projectRoot, 'src/ui'),
-    plugins: [react(), docsApiPlugin(repo)],
-    server: { host: 'localhost' },
+  const server = await startDocsServer({
+    uiRoot: path.join(projectRoot, 'src/ui'),
+    repo,
+    host: 'localhost',
   });
-  await server.listen();
   console.log(`docs: ${repo}`);
   console.log(
     `indexed ${graph.nodes.length} nodes, ${graph.edges.length} edges, ${graph.problems.length} problems`,
   );
-  server.printUrls();
+  server.vite.printUrls();
 }
 
 main().catch((error: unknown) => {

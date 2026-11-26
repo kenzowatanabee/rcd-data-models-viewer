@@ -811,7 +811,12 @@
 }
 
 @media (max-width: 1099px) {
-  .docs-folder {
+  span.docs-folder {
+    display: none;
+  }
+
+  /* The desktop app's folder menu stays, as an icon */
+  button.docs-folder span {
     display: none;
   }
 }
@@ -830,4 +835,45 @@
   .topnav a {
     padding: 0 var(--space-1-5);
   }
+}
+
+/* Desktop app: the first screen, before a docs folder is open */
+
+.welcome {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 0 var(--space-4);
+}
+
+.welcome .state-title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.welcome-error {
+  color: var(--color-danger);
+}
+
+.welcome-recent ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-recent .btn {
+  font-family: var(--font-mono);
+}
+
+button.docs-folder {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  padding: var(--space-1) var(--space-1-5);
+  cursor: pointer;
+}
+
+button.docs-folder:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
 }

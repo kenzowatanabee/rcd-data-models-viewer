@@ -5,7 +5,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default [
-  { ignores: ['dist/', 'build/', 'node_modules/'] },
+  { ignores: ['dist/', 'build/', 'out/', 'node_modules/'] },
   {
     files: ['*.js'],
     ...js.configs.recommended,
@@ -14,7 +14,7 @@ export default [
   ...tseslint.configs.recommended,
   ...tseslint.configs.stylistic,
   {
-    files: ['src/indexer/**/*.ts', 'src/server/**/*.ts'],
+    files: ['src/indexer/**/*.ts', 'src/server/**/*.ts', 'src/desktop/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
   {

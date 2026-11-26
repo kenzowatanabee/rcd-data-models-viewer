@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 
-import type { Plugin } from 'vite';
+import type { Plugin, ViteDevServer } from 'vite';
 
 import { buildGraph } from '../indexer/buildGraph';
 import {
@@ -37,13 +37,27 @@ function isInside(root: string, file: string): boolean {
   );
 }
 
-/** Serves the docs repo at `repo` under `/api` and reports Markdown edits. */
-export function docsApiPlugin(repo: string): Plugin {
-  const root = path.resolve(repo);
+export interface DocsApi {
+  plugin: Plugin;
+  /** Serves another folder (null: none) from the next request on. */
+  setRepo: (repo: string | null) => void;
+}
+
+const NO_REPO = 'No docs folder is open';
+
+/**
+ * Serves the docs repo at `repo` under `/api` and reports Markdown edits.
+ * The folder can be switched while the server runs (the desktop app does).
+ */
+export function createDocsApi(initialRepo: string | null): DocsApi {
+  let root: string | null =
+    initialRepo === null ? null : path.resolve(initialRepo);
   let cached: GraphResponse | null = null;
   let cachedHeadings: HeadingsResponse | null = null;
+  let watcher: ViteDevServer['watcher'] | null = null;
 
   const graphResponse = (): GraphResponse => {
+    if (root === null) throw new Error(NO_REPO);
     cached ??= {
       docsPath: root,
       graph: buildGraph(root),
@@ -53,6 +67,7 @@ export function docsApiPlugin(repo: string): Plugin {
   };
 
   const handleGraph = (res: ServerResponse) => {
+    if (root === null) return sendError(res, 503, NO_REPO);
     try {
       send(res, 200, 'application/json', JSON.stringify(graphResponse()));
     } catch (error) {
@@ -62,6 +77,7 @@ export function docsApiPlugin(repo: string): Plugin {
 
   /** The file's text, or null unless it is a Markdown file in the repo. */
   const readDoc = (file: string): string | null => {
+    if (root === null) return null;
     let real: string;
     try {
       real = fs.realpathSync(path.join(root, ...file.split('/')));
@@ -74,7 +90,6 @@ export function docsApiPlugin(repo: string): Plugin {
     }
     return fs.readFileSync(real, 'utf8');
   };
-
   const handleDoc = (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     const checked = validateDocPath(url.searchParams.get('file'));
@@ -110,6 +125,7 @@ export function docsApiPlugin(repo: string): Plugin {
   };
 
   const handleHeadings = (res: ServerResponse) => {
+    if (root === null) return sendError(res, 503, NO_REPO);
     try {
       send(res, 200, 'application/json', JSON.stringify(headingsResponse()));
     } catch (error) {
@@ -117,7 +133,23 @@ export function docsApiPlugin(repo: string): Plugin {
     }
   };
 
-  return {
+  let pending = new Set<string>();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const setRepo = (repo: string | null) => {
+    const next = repo === null ? null : path.resolve(repo);
+    if (watcher !== null && root !== null) void watcher.unwatch(root);
+    root = next;
+    cached = null;
+    cachedHeadings = null;
+    clearTimeout(timer);
+    pending = new Set();
+    // Vite's watcher ignores .git and node_modules; it does nothing else
+    // with these files since no module imports them.
+    if (watcher !== null && root !== null) watcher.add(root);
+  };
+
+  const plugin: Plugin = {
     name: 'docs-api',
     configureServer(server) {
       server.middlewares.use('/api/graph', (req, res, next) => {
@@ -133,13 +165,14 @@ export function docsApiPlugin(repo: string): Plugin {
         handleHeadings(res);
       });
 
-      // Vite's watcher ignores .git and node_modules; it does nothing else
-      // with these files since no module imports them.
-      server.watcher.add(root);
-      let pending = new Set<string>();
-      let timer: ReturnType<typeof setTimeout> | undefined;
+      watcher = server.watcher;
+      setRepo(root);
       const onChange = (file: string) => {
-        if (!file.toLowerCase().endsWith('.md') || !isInside(root, file)) {
+        if (
+          root === null ||
+          !file.toLowerCase().endsWith('.md') ||
+          !isInside(root, file)
+        ) {
           return;
         }
         pending.add(path.relative(root, file).split(path.sep).join('/'));
@@ -162,4 +195,5 @@ export function docsApiPlugin(repo: string): Plugin {
       server.watcher.on('unlink', onChange);
     },
   };
+  return { plugin, setRepo };
 }
