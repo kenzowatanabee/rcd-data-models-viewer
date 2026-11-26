@@ -7,6 +7,7 @@ import './styles/graph.css';
 import './styles/flow.css';
 import './styles/palette.css';
 import './styles/health.css';
+import './styles/tabs.css';
 
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -44,14 +45,21 @@ function Root() {
       off();
     };
   }, []);
-  if (desktop === null) return <App />;
+  if (desktop === null) {
+    return <App folderKey="browser" onClone={() => undefined} />;
+  }
   if (folder === null) return null;
   return (
     <>
       {folder.current === null ? (
         <Welcome state={folder} onClone={() => setCloning(true)} />
       ) : (
-        <App />
+        // Keyed: another folder's tabs must never be saved under this one
+        <App
+          key={folder.current}
+          folderKey={folder.current}
+          onClone={() => setCloning(true)}
+        />
       )}
       {cloning && <CloneDialog onClose={() => setCloning(false)} />}
     </>

@@ -10,11 +10,44 @@ export function readSetting(key: string): string | null {
   }
 }
 
+const SETTING_EVENT = 'rcd-setting';
+
 export function writeSetting(key: string, value: string): void {
   try {
     window.localStorage.setItem(key, value);
   } catch {
     // Not persisted; the setting still applies for this session
+  }
+  // Views that read a setting once (Markdown wrap) follow Settings live
+  window.dispatchEvent(
+    new CustomEvent(SETTING_EVENT, { detail: { key, value } }),
+  );
+}
+
+/** Calls `listener` with the new value whenever `key` is written. */
+export function onSettingChange(
+  key: string,
+  listener: (value: string) => void,
+) {
+  const wrapped = (event: Event) => {
+    const detail = (event as CustomEvent<{ key: string; value: string }>)
+      .detail;
+    if (detail.key === key) listener(detail.value);
+  };
+  window.addEventListener(SETTING_EVENT, wrapped);
+  return () => window.removeEventListener(SETTING_EVENT, wrapped);
+}
+
+/** Removes every stored setting whose key starts with `prefix`. */
+export function clearSettings(prefix: string): void {
+  try {
+    const store = window.localStorage;
+    const keys = Array.from({ length: store.length }, (_, i) => store.key(i));
+    for (const key of keys) {
+      if (key !== null && key.startsWith(prefix)) store.removeItem(key);
+    }
+  } catch {
+    // Nothing stored, or storage blocked
   }
 }
 

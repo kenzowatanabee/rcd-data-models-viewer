@@ -16,6 +16,8 @@ export interface FolderState {
   recent: string[];
   /** Why the folder asked for (remembered or on the command line) failed. */
   problem: string | null;
+  /** Where the app keeps its folders, window and git settings. */
+  settingsFile?: string;
 }
 
 export type OpenFolderResult =

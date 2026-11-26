@@ -46,6 +46,7 @@ describe('appMenuTemplate', () => {
     );
     expect(accelerators).toEqual([
       'CmdOrCtrl+O',
+      'CmdOrCtrl+Shift+W',
       'CmdOrCtrl+Shift+F',
       'CmdOrCtrl+Shift+P',
     ]);
@@ -87,5 +88,32 @@ describe('folderMenuTemplate', () => {
     expect(
       items.find((item) => item.label === 'Show in File Explorer'),
     ).toBeDefined();
+  });
+});
+
+describe('keys left to the page', () => {
+  it('gives no menu item Ctrl/⌘+W, T or Tab', () => {
+    const accelerators: string[] = [];
+    const walk = (items: MenuItemConstructorOptions[]) => {
+      for (const item of items) {
+        if (typeof item.accelerator === 'string')
+          accelerators.push(item.accelerator);
+        if (item.role === 'close' && item.accelerator === undefined)
+          accelerators.push('CmdOrCtrl+W');
+        if (item.role === 'windowMenu') accelerators.push('CmdOrCtrl+W');
+        if (Array.isArray(item.submenu)) walk(item.submenu);
+      }
+    };
+    for (const platform of ['darwin', 'win32', 'linux']) {
+      walk(appMenuTemplate('App', actions(platform, '/d')));
+    }
+    for (const taken of [
+      'CmdOrCtrl+W',
+      'CmdOrCtrl+T',
+      'CmdOrCtrl+Tab',
+      'Ctrl+Tab',
+    ]) {
+      expect(accelerators).not.toContain(taken);
+    }
   });
 });

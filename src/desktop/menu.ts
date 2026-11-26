@@ -68,8 +68,10 @@ export function folderMenuTemplate(
 
 /**
  * The application menu. Only modified shortcuts appear here; the viewer's
- * own keys (mod+K, /, [, ], g sequences, j, k, m, t, f, 0, ?, Alt+arrows)
- * stay with the page. Git uses mod+Shift+F and mod+Shift+P.
+ * own keys (rebindable in Settings: mod+K, mod+T/W/Tab for tabs, /, [, ],
+ * g sequences...) stay with the page, so no item may take mod+W, mod+T or
+ * mod+Tab. Git uses mod+Shift+F and mod+Shift+P. keymap.ts lists these
+ * accelerators as reserved in the desktop app.
  */
 export function appMenuTemplate(
   appName: string,
@@ -119,7 +121,13 @@ export function appMenuTemplate(
           click: actions.copyPath,
         },
         { type: 'separator' },
-        mac ? { role: 'close' } : { role: 'quit' },
+        // ⌘/Ctrl+W closes a tab in the page; the window takes Shift too
+        {
+          role: 'close',
+          label: 'Close Window',
+          accelerator: 'CmdOrCtrl+Shift+W',
+        },
+        ...(mac ? [] : [{ role: 'quit' } as const]),
       ],
     },
     {
@@ -167,7 +175,19 @@ export function appMenuTemplate(
         { label: 'Clone Repository…', click: actions.git.clone },
       ],
     },
-    { role: 'windowMenu' },
+    // Not the `windowMenu` role: on Windows and Linux it adds Close on Ctrl+W
+    {
+      label: 'Window',
+      role: mac ? 'window' : undefined,
+      submenu: mac
+        ? [
+            { role: 'minimize' },
+            { role: 'zoom' },
+            { type: 'separator' },
+            { role: 'front' },
+          ]
+        : [{ role: 'minimize' }],
+    },
     {
       role: 'help',
       submenu: mac ? [] : [{ role: 'about' }],

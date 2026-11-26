@@ -1,8 +1,6 @@
 import {
   ChevronDown,
   CircleCheck,
-  Clock,
-  HeartPulse,
   ListFilter,
   PencilLine,
   Pin,
@@ -50,6 +48,7 @@ import {
   type NavRow,
   type SidebarDoc,
 } from './sidebarModel';
+import { ShortcutKeys, useAriaKeys } from './ShortcutLayer';
 import { StateView } from './State';
 import { readSetting, writeSetting } from './storage';
 
@@ -70,8 +69,6 @@ const LAYER_LABELS: Record<string, string> = {
   output: 'Output',
 };
 
-/** How many recent docs the sidebar lists. */
-const RECENT_SHOWN = 6;
 /** Type-ahead letters typed within this time add up. */
 const TYPEAHEAD_MS = 700;
 
@@ -101,6 +98,9 @@ interface RowProps {
   pinned: boolean;
   tabbable: string;
   onTogglePin: (file: string) => void;
+  /** Docs open in a tab. */
+  open: ReadonlySet<string>;
+  onRowMenu: (file: string, x: number, y: number) => void;
   /** Sidebar width, to decide whether the shared prefix fits. */
   width: number;
   depth: number;
@@ -114,9 +114,12 @@ function Row({
   pinned,
   tabbable,
   onTogglePin,
+  open,
+  onRowMenu,
   width,
   depth,
 }: RowProps) {
+  const isOpen = open.has(row.doc.file);
   const { doc, prefix, hits, issues } = row;
   const key = docKey(scope, doc.file);
   const marker = markerClass(doc);
@@ -147,13 +150,14 @@ function Row({
     doc.status,
     issues > 0 ? `${issues} to fix` : null,
     pinned ? 'pinned' : null,
+    isOpen ? 'open in a tab' : null,
   ]
     .filter(Boolean)
     .join(', ');
   return (
     <li className={`nav-item${issues > 0 ? ' has-issues' : ''}`}>
       <a
-        className="nav-row"
+        className={`nav-row${isOpen ? ' is-open' : ''}`}
         data-nav-item={key}
         data-scope={scope}
         data-stem={fold(stem)}
@@ -163,6 +167,30 @@ function Row({
         aria-label={described}
         aria-current={doc.file === current ? 'page' : undefined}
         tabIndex={key === tabbable ? 0 : -1}
+        onClick={(event) => {
+          // A row that keeps focus takes letter keys for type-ahead, which
+          // silences j, k, m and the g sequences. After a mouse click the
+          // reader is in the doc, so focus goes there; keyboard activation
+          // (detail 0) stays in the list.
+          if (event.detail === 0 || event.ctrlKey || event.metaKey) return;
+          requestAnimationFrame(() =>
+            document.getElementById('main')?.focus({ preventScroll: true }),
+          );
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          onRowMenu(doc.file, event.clientX, event.clientY);
+        }}
+        onKeyDown={(event) => {
+          if (
+            event.key === 'ContextMenu' ||
+            (event.key === 'F10' && event.shiftKey)
+          ) {
+            event.preventDefault();
+            const box = event.currentTarget.getBoundingClientRect();
+            onRowMenu(doc.file, box.left + 24, box.bottom);
+          }
+        }}
       >
         {marker !== null && (
           <span className={`layer-marker ${marker}`} aria-hidden="true" />
@@ -180,6 +208,7 @@ function Row({
             <Highlighted text={stem} at={stemHits} />
           </span>
         </span>
+        {isOpen && <span className="nav-open" aria-hidden="true" />}
         {meta && <span className="nav-meta">{doc.layer}</span>}
         {tone === 'draft' ? (
           // A dashed ring: draft, by shape as well as colour
@@ -342,8 +371,6 @@ interface Props {
   docs: readonly SidebarDoc[] | null;
   bands: readonly FamilyBand[];
   issues: ReadonlyMap<string, number>;
-  /** To-do items on the health page; null until the index loads. */
-  issueTotal: number | null;
   /** The index could not be loaded; the main area says why. */
   failed: boolean;
   current: string | null;
@@ -357,15 +384,17 @@ interface Props {
   onGroupBy: (value: GroupBy) => void;
   pinned: readonly string[];
   onTogglePin: (file: string) => void;
-  /** Recently opened docs, most recent first. */
-  recent: readonly string[];
+  /** Docs open in a tab, marked in the list. */
+  open: ReadonlySet<string>;
+  onRowMenu: (file: string, x: number, y: number) => void;
+  /** The folder control at the bottom. */
+  footer: ReactNode;
 }
 
 export function Sidebar({
   docs,
   bands,
   issues,
-  issueTotal,
   failed,
   current,
   filterRef,
@@ -377,8 +406,11 @@ export function Sidebar({
   onGroupBy,
   pinned,
   onTogglePin,
-  recent,
+  open,
+  onRowMenu,
+  footer,
 }: Props) {
+  const filterKeys = useAriaKeys('filter');
   const [query, setQuery] = useState('');
   const [chips, setChips] = useState<Chips>(NO_CHIPS);
   const [collapsed, setCollapsed] = useState(() =>
@@ -445,17 +477,11 @@ export function Sidebar({
     return { id, title, marker: null, total: rows.length, rows, children: [] };
   };
   const pinnedGroup = quickGroup('pinned', 'Pinned', pinned);
-  const recentGroup = quickGroup(
-    'recent',
-    'Recent',
-    recent.filter((file) => byFile.has(file)).slice(0, RECENT_SHOWN),
-  );
   const quick = filtering
     ? []
-    : [
-        { group: pinnedGroup, scope: 'pinned', icon: Pin },
-        { group: recentGroup, scope: 'recent', icon: Clock },
-      ].filter(({ group }) => group.rows.length > 0);
+    : [{ group: pinnedGroup, scope: 'pinned', icon: Pin }].filter(
+        ({ group }) => group.rows.length > 0,
+      );
   const main = (groups ?? []).map((group) => ({ group, scope: 'main' }));
   const keys = visibleKeys([...quick, ...main], isCollapsed);
   const currentKey = current === null ? null : docKey('main', current);
@@ -578,17 +604,14 @@ export function Sidebar({
 
   const nothing =
     groups !== null && groups.every((group) => shownCount(group) === 0);
-  const counts = {
-    dataset: docs?.filter((d) => d.kind === 'dataset').length ?? 0,
-    pipeline: docs?.filter((d) => d.kind === 'pipeline').length ?? 0,
-    doc: docs?.filter((d) => d.kind === 'doc').length ?? 0,
-  };
   const rowProps = {
     width: width ?? 340,
     current,
     tabbable,
     onTogglePin,
     pinned: pinnedSet,
+    open,
+    onRowMenu,
   };
 
   return (
@@ -608,7 +631,7 @@ export function Sidebar({
             className="input"
             placeholder="Filter docs"
             aria-label="Filter docs by name or alias"
-            aria-keyshortcuts="/"
+            aria-keyshortcuts={filterKeys}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -620,7 +643,7 @@ export function Sidebar({
           />
           <span className="search-field-end">
             {query === '' ? (
-              <kbd title="Press / to filter">/</kbd>
+              <ShortcutKeys id="filter" />
             ) : (
               <button
                 type="button"
@@ -805,27 +828,7 @@ export function Sidebar({
           </>
         )}
       </div>
-      <footer className="sidebar-foot">
-        <span className="sidebar-foot-counts tabular" title="Docs in the index">
-          {counts.dataset} datasets · {counts.pipeline} pipelines · {counts.doc}{' '}
-          other
-        </span>
-        <a
-          className="sidebar-foot-health"
-          href={healthHash()}
-          title="Docs health: what to fix"
-        >
-          <HeartPulse size={13} aria-hidden="true" />
-          Health
-          {issueTotal !== null && issueTotal > 0 && (
-            <span className="nav-badge tabular">
-              <span className="visually-hidden">, </span>
-              {issueTotal}
-              <span className="visually-hidden"> to fix</span>
-            </span>
-          )}
-        </a>
-      </footer>
+      <footer className="sidebar-foot">{footer}</footer>
       {width !== null && (
         <ResizeHandle
           edge="right"

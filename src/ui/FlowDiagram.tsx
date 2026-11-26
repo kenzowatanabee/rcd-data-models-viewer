@@ -47,6 +47,7 @@ import { paintFor, type Paint, type Rgb } from './flowStyle';
 import { EDGE_LABEL_PAD, TEXT, sizeChart, type TextRole } from './flowSize';
 import { traceFlow, type FlowTrace } from './flowTrace';
 import { arrowPath } from './graphLayout';
+import { navigate } from './address';
 import { docHash } from './route';
 import type { Theme } from './settings';
 import { useTheme } from './theme';
@@ -849,7 +850,7 @@ export function FlowView({ source, model, toolbarStart }: FlowViewProps) {
     if (room > 0) setZoom(Math.min(1, room / size.width));
   };
   const openDoc = (node: GraphNode) => {
-    if (node.file !== null) window.location.hash = docHash(node.file);
+    if (node.file !== null) navigate(docHash(node.file));
   };
   const close = () => {
     setOpen(false);

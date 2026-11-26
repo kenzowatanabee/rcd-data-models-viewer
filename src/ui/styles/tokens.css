@@ -54,6 +54,7 @@
   --control-h: 28px;
   --control-h-sm: 22px;
   --topbar-h: 44px;
+  --rail-w: 44px;
   --row-h: 28px;
   --panel-w: 320px;
   /* Density: list rows and table cells; compact is set on <html> */
@@ -145,6 +146,12 @@
   /* Elevation: one style, for popovers and menus */
   --shadow-popover:
     0 0 0 1px rgb(15 20 30 / 0.08), 0 6px 20px -4px rgb(15 20 30 / 0.18);
+  /* The icon rail and the tab strip */
+  --color-rail-bg: #eceef1;
+  --color-rail-icon: #4f5761;
+  --color-tab-hover: #e9ecf0;
+  --color-badge-bg: #7d5300;
+  --color-badge-text: #ffffff;
 }
 
 :root[data-theme='dark'] {
@@ -203,4 +210,9 @@
     0 0 0 1px rgb(255 255 255 / 0.08), 0 12px 40px rgb(0 0 0 / 0.6);
   --shadow-popover:
     0 0 0 1px rgb(255 255 255 / 0.08), 0 8px 24px -4px rgb(0 0 0 / 0.6);
+  --color-rail-bg: #191b1f;
+  --color-rail-icon: #a3aab4;
+  --color-tab-hover: #262a30;
+  --color-badge-bg: #e0b44f;
+  --color-badge-text: #111318;
 }

@@ -18,18 +18,38 @@ export type ShortcutId =
   | 'top'
   | 'toggle-source'
   | 'graph-fit'
-  | 'graph-actual';
+  | 'graph-actual'
+  | 'settings'
+  | 'new-tab'
+  | 'close-tab'
+  | 'reopen-tab'
+  | 'next-tab'
+  | 'previous-tab'
+  | 'back'
+  | 'forward'
+  | TabNumberId;
 
-export type Where = 'Everywhere' | 'Doc pages' | 'Lineage graph';
+export type TabNumberId = `tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`;
+
+export type Where = 'Everywhere' | 'Tabs' | 'Doc pages' | 'Lineage graph';
 
 export interface ShortcutDef {
   id: ShortcutId;
-  /** Alternatives; each is a sequence of chords such as `mod+k` or `g`. */
+  /**
+   * Alternatives; each is a sequence of chords such as `mod+k` or `g`. These
+   * are the browser's defaults; `desktop` (and `desktopMac`) replace them in
+   * the desktop app, where Ctrl/⌘+T, W and Tab are not taken by a browser.
+   */
   keys: string[][];
+  desktop?: string[][];
+  desktopMac?: string[][];
   label: string;
   where: Where;
-  /** Also fires while typing in a text field. */
-  inInputs?: boolean;
+  /**
+   * Also fires while typing in a text field; `modified` only when bound to
+   * a Ctrl/⌘ combination, which typing never produces.
+   */
+  inInputs?: boolean | 'modified';
 }
 
 export const SHORTCUTS: readonly ShortcutDef[] = [
@@ -113,6 +133,77 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     label: 'Zoom to actual size (100%)',
     where: 'Lineage graph',
   },
+  {
+    id: 'settings',
+    inInputs: 'modified',
+    keys: [['mod+,']],
+    label: 'Open Settings',
+    where: 'Everywhere',
+  },
+  {
+    id: 'new-tab',
+    inInputs: 'modified',
+    keys: [['alt+t']],
+    desktop: [['mod+t']],
+    label: 'New tab',
+    where: 'Tabs',
+  },
+  {
+    id: 'close-tab',
+    inInputs: 'modified',
+    keys: [['alt+w']],
+    desktop: [['mod+w']],
+    label: 'Close the tab',
+    where: 'Tabs',
+  },
+  {
+    id: 'reopen-tab',
+    inInputs: 'modified',
+    keys: [['alt+shift+t']],
+    desktop: [['mod+shift+t']],
+    label: 'Reopen the last closed tab',
+    where: 'Tabs',
+  },
+  {
+    id: 'next-tab',
+    inInputs: 'modified',
+    keys: [['alt+PageDown'], ['g', 't']],
+    desktop: [['mod+Tab'], ['g', 't']],
+    desktopMac: [['ctrl+Tab'], ['g', 't']],
+    label: 'Next tab',
+    where: 'Tabs',
+  },
+  {
+    id: 'previous-tab',
+    inInputs: 'modified',
+    keys: [['alt+PageUp'], ['g', 'T']],
+    desktop: [['mod+shift+Tab'], ['g', 'T']],
+    desktopMac: [['ctrl+shift+Tab'], ['g', 'T']],
+    label: 'Previous tab',
+    where: 'Tabs',
+  },
+  {
+    id: 'back',
+    keys: [['alt+ArrowLeft']],
+    desktopMac: [['alt+ArrowLeft'], ['mod+[']],
+    label: 'Back, in this tab',
+    where: 'Tabs',
+  },
+  {
+    id: 'forward',
+    keys: [['alt+ArrowRight']],
+    desktopMac: [['alt+ArrowRight'], ['mod+]']],
+    label: 'Forward, in this tab',
+    where: 'Tabs',
+  },
+  ...([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n): ShortcutDef => ({
+    id: `tab-${n}`,
+    inInputs: 'modified',
+    keys: [[`alt+${n}`]],
+    desktop: [[`mod+${n}`]],
+    label: n === 9 ? 'Go to the last tab' : `Go to tab ${n}`,
+    where: 'Tabs',
+  })),
 ];
 
 /** Keys handled where they apply, listed in the help dialog only. */
@@ -182,6 +273,9 @@ export interface KeyInput {
   ctrlKey: boolean;
   metaKey: boolean;
   altKey: boolean;
+  shiftKey?: boolean;
+  /** The physical key, such as `KeyT`; read for ⌥ combinations on macOS. */
+  code?: string;
   isComposing: boolean;
 }
 
@@ -202,8 +296,20 @@ export function chordOf(input: KeyInput, mac: boolean): string | null {
   if (other) parts.push(mac ? 'ctrl' : 'meta');
   if (mod) parts.push('mod');
   if (input.altKey) parts.push('alt');
+  // ⌥ on macOS types another character (⌥T is †): use the key's letter
+  const physical =
+    mac && input.altKey
+      ? /^(?:Key([A-Z])|Digit([0-9]))$/.exec(input.code ?? '')
+      : null;
+  const base =
+    physical === null ? key : (physical[1] ?? physical[2] ?? key).toLowerCase();
+  // Shift is spelled out only where it is not already in the key itself:
+  // with another modifier, or on a named key (`shift+Tab`); `?` stays `?`
+  if (input.shiftKey && (parts.length > 0 || base.length > 1)) {
+    parts.push('shift');
+  }
   // Letters with a modifier come as `K` with Shift or caps lock
-  parts.push(key.length === 1 && parts.length > 0 ? key.toLowerCase() : key);
+  parts.push(base.length === 1 && parts.length > 0 ? base.toLowerCase() : base);
   return parts.join('+');
 }
 
@@ -254,10 +360,14 @@ export function resolveKey(
   if (chord === null) return { id: null, pending };
   if (context.modalOpen) return { id: null, pending: null };
   const sequences = defs
+    .filter((def) => context.enabled(def.id))
+    .flatMap((def) => def.keys.map((keys) => ({ id: def.id, keys, def })))
     .filter(
-      (def) => context.enabled(def.id) && (!context.typing || def.inInputs),
-    )
-    .flatMap((def) => def.keys.map((keys) => ({ id: def.id, keys })));
+      ({ def, keys }) =>
+        !context.typing ||
+        def.inInputs === true ||
+        (def.inInputs === 'modified' && /(^|\+)mod\+/.test(keys[0] ?? '')),
+    );
   const attempt = (chords: string[]): Resolution | null => {
     const full = sequences.find(
       (sequence) =>
@@ -288,16 +398,31 @@ const NAMED: Record<string, string> = {
   ArrowRight: '→',
   Escape: 'Esc',
   Enter: 'Enter',
+  PageUp: 'PgUp',
+  PageDown: 'PgDn',
+  ' ': 'Space',
 };
+
+/** Splits `mod+shift+k` (or `mod++`) into its modifiers and its key. */
+export function splitChord(chord: string): { mods: string[]; key: string } {
+  const parts = chord.split('+');
+  // A trailing `+` key splits into two empty parts
+  if (chord.endsWith('++')) {
+    return { mods: parts.slice(0, -2), key: '+' };
+  }
+  const key = parts.pop() ?? '';
+  return { mods: parts, key };
+}
 
 /** The keys of a chord as shown to the reader: `⌘ K` or `Ctrl K`. */
 export function formatChord(chord: string, mac: boolean): string[] {
-  const parts = chord.split('+');
-  const key = parts.pop() ?? '';
+  const { mods: parts, key } = splitChord(chord);
   const shown = parts.map((part) => {
     if (part === 'mod') return mac ? '⌘' : 'Ctrl';
     if (part === 'alt') return mac ? '⌥' : 'Alt';
-    if (part === 'ctrl') return 'Ctrl';
+    if (part === 'shift') return mac ? '⇧' : 'Shift';
+    if (part === 'ctrl') return mac ? '⌃' : 'Ctrl';
+    if (part === 'meta') return 'Win';
     return part;
   });
   // Plain letters stay lower case so `j` does not read as Shift+J

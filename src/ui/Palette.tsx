@@ -23,6 +23,8 @@ interface Props {
   /** `inGraph`: Ctrl/⌘+Enter, open the node in the graph instead. */
   onRun: (item: PaletteItem, inGraph: boolean) => void;
   onClose: () => void;
+  /** Docs open in a tab, marked in the results. */
+  open?: ReadonlySet<string>;
 }
 
 function Highlighted({ text, at }: { text: string; at: readonly number[] }) {
@@ -36,7 +38,7 @@ function Highlighted({ text, at }: { text: string; at: readonly number[] }) {
   );
 }
 
-function RowContent({ row }: { row: ResultRow }) {
+function RowContent({ row, isOpen }: { row: ResultRow; isOpen: boolean }) {
   const { item, highlights } = row;
   const on = (field: number) =>
     highlights.find((highlight) => highlight.field === field)?.at ?? [];
@@ -68,6 +70,7 @@ function RowContent({ row }: { row: ResultRow }) {
           </span>
         )}
       </span>
+      {isOpen && <span className="palette-open">Open in a tab</span>}
       {item.meta !== null && <span className="palette-meta">{item.meta}</span>}
     </>
   );
@@ -83,6 +86,7 @@ export function Palette({
   headingsPending,
   onRun,
   onClose,
+  open,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
@@ -219,7 +223,14 @@ export function Palette({
                       run(row, IS_MAC ? event.metaKey : event.ctrlKey)
                     }
                   >
-                    <RowContent row={row} />
+                    <RowContent
+                      row={row}
+                      isOpen={
+                        row.item.kind !== 'heading' &&
+                        row.item.file !== null &&
+                        (open?.has(row.item.file) ?? false)
+                      }
+                    />
                     {at === current && (
                       <CornerDownLeft
                         className="palette-enter"
