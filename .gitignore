@@ -5,3 +5,4 @@ coverage/
 graph.json
 *.log
 .DS_Store
+out/

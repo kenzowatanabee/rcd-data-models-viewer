@@ -29,6 +29,62 @@ It starts a local server (Vite, on `http://localhost:5173/` or the next free por
 stops with Ctrl+C. The path is checked first: if it has no `docs/datasets` and
 `docs/pipelines`, the command stops with a message saying so.
 
+The server only answers requests addressed to itself (`localhost`, `127.0.0.1` or
+`[::1]` with its port); a request with any other `Host` header gets a 403, so a web page
+cannot reach it by pointing its own domain name at your machine.
+
+### Desktop app
+
+The same viewer in its own window (Electron), run from this repo. There is no installer
+yet.
+
+```bash
+pnpm app                         # the folder used last time, or a welcome screen
+pnpm app -- ../rcd-data-models   # open this folder (and remember it)
+```
+
+`pnpm app` bundles the app's main process into `out/` (git-ignored) and starts it. The
+first time, the window asks for the docs folder: "Choose folder…" opens the system
+folder picker, and a folder without `docs/datasets` and `docs/pipelines` is refused with
+the reason. A path on the command line always wins over the remembered one; if the app is
+already running, the running window opens it instead of a second window starting.
+
+To switch folders: **File → Open Folder…** (⌘O / Ctrl+O), **File → Open Recent** (the last
+five), or the folder name in the top bar, whose menu also has "Reveal in Finder" / "Show in
+File Explorer" and "Copy Path". The viewer reloads for the new folder from its landing
+page. Window size, position and maximised state are remembered too.
+
+The app's settings are one JSON file, `settings.json`, in:
+
+| OS      | Folder                                           |
+| ------- | ------------------------------------------------ |
+| macOS   | `~/Library/Application Support/RCD Data Models/` |
+| Windows | `%APPDATA%\RCD Data Models\`                     |
+| Linux   | `~/.config/RCD Data Models/`                     |
+
+Deleting it resets the app; a damaged file is ignored. `--user-data-dir=<folder>` after
+`pnpm app --` uses another folder (for a second profile or tests).
+
+How it is kept safe:
+
+- The window's page is sandboxed with context isolation and no Node.js: it reaches the
+  app only through a small preload API (choose, open, reveal and copy the folder), and
+  the main process checks every call's arguments and that it comes from the app's own
+  page.
+- The local server listens on `127.0.0.1` only, on a port picked once and then reused (so
+  the theme and other settings saved by the page are kept), and checks the `Host`
+  header as above.
+- The page cannot navigate away from the app or open windows. `http`/`https` links open
+  in your default browser; every other kind of link is refused. Permission requests
+  (camera, location, notifications...) are denied; only writing to the clipboard, for the
+  copy buttons, is allowed.
+- A Content-Security-Policy allows the page's own scripts and its two inline scripts by
+  hash, and nothing from the network. Styles allow inline (Vite injects CSS that way and
+  Mermaid's SVG carries its own styles).
+
+Not built yet: an installer or packaged app, auto-update, signing, and git (fetch, pull,
+clone) from inside the app.
+
 What it shows:
 
 - **Top bar:** the three sections, Docs, Lineage graph and Docs health ("Docs" returns
@@ -36,7 +92,8 @@ What it shows:
   with its shortcut (quick open, see below), the name of the docs folder being viewed
   (the full path on hover), row density (comfortable or compact) and the theme: light,
   dark or the system's. Density and theme are remembered, and diagrams and the graph
-  switch with the theme. Below 1100 px the folder name is hidden, and below 960 px the
+  switch with the theme. Below 1100 px the folder name is hidden (in the desktop app it
+  becomes an icon), and below 960 px the
   section names and "Go to…" become icons (named on hover and to screen readers). The
   bar is marked as the drag area for a future frameless desktop window; this has no
   effect in a browser.
