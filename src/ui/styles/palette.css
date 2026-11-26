@@ -311,3 +311,69 @@
   margin: 0;
   font-size: var(--text-sm);
 }
+
+/* The branch picker: the palette's look, with wrapping names */
+.branch-picker .palette-meta {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.branch-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  /* Long names such as docs/health-fixes-and-viewer wrap at any point */
+  overflow-wrap: anywhere;
+}
+
+.branch-current .branch-name {
+  font-weight: var(--weight-semibold);
+}
+
+.branch-option[aria-disabled='true'] {
+  cursor: default;
+}
+
+.branch-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.branch-subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.branch-note {
+  white-space: nowrap;
+}
+
+.branch-status:empty {
+  display: none;
+}
+
+.branch-status,
+.branch-confirm {
+  padding: var(--space-2) var(--space-3) 0;
+}
+
+.branch-confirm .git-actions {
+  margin-top: var(--space-2);
+}
+
+.branch-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}

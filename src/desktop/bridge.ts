@@ -3,6 +3,8 @@
 
 import type {
   ActionResult,
+  BranchListResult,
+  BranchTarget,
   CloneParentResult,
   CloneProgress,
   CloneResult,
@@ -55,6 +57,17 @@ export interface DesktopApi {
   gitClone: (url: string) => Promise<CloneResult>;
   /** Background fetch interval in minutes, 0 for off. */
   gitSetAutoFetch: (minutes: number) => Promise<GitState>;
+  /** Local branches and the remote's (as of the last fetch). */
+  gitListBranches: () => Promise<BranchListResult>;
+  /**
+   * Switches to a branch from the list; never discards anything. A commit
+   * only a detached HEAD holds needs `confirmDetached`.
+   */
+  gitSwitchBranch: (
+    target: BranchTarget,
+    confirmDetached: boolean,
+  ) => Promise<ActionResult>;
+  onOpenBranches: (listener: () => void) => () => void;
   onGitState: (listener: (state: GitState) => void) => () => void;
   onCloneProgress: (listener: (progress: CloneProgress) => void) => () => void;
   onOpenClone: (listener: () => void) => () => void;

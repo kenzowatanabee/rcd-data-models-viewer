@@ -20,6 +20,10 @@ export const IPC = {
   gitChooseCloneParent: 'git:choose-clone-parent',
   gitClone: 'git:clone',
   gitSetAutoFetch: 'git:set-auto-fetch',
+  gitListBranches: 'git:list-branches',
+  gitSwitchBranch: 'git:switch-branch',
+  /** Main to page: the menu asked for the branch picker. */
+  gitOpenBranches: 'git:open-branches',
   /** Main to page: the git state changed. */
   gitState: 'git:state',
   /** Main to page: clone progress. */
@@ -27,6 +31,9 @@ export const IPC = {
   /** Main to page: the menu asked for the clone dialog. */
   gitOpenClone: 'git:open-clone',
 } as const;
+
+import { branchNameProblem, MAX_BRANCH_NAME } from './gitBranches';
+import type { BranchTarget } from './gitTypes';
 
 /** A parsed argument list, or null when it must be refused. */
 export type Parsed<T> = { value: T } | null;
@@ -70,6 +77,34 @@ export function minutesArg(
   return typeof value === 'number' && choices.includes(value)
     ? { value }
     : null;
+}
+
+/**
+ * `{ kind, name }` and a literal boolean: the branch to switch to (looked
+ * up again in a fresh list before git sees it) and whether the user
+ * confirmed leaving a commit that no branch contains.
+ */
+export function switchArgs(
+  args: readonly unknown[],
+): Parsed<{ target: BranchTarget; confirmDetached: boolean }> {
+  if (args.length !== 2) return null;
+  const [target, confirm] = args;
+  if (confirm !== true && confirm !== false) return null;
+  if (typeof target !== 'object' || target === null) return null;
+  const keys = Object.keys(target).sort();
+  if (keys.length !== 2 || keys[0] !== 'kind' || keys[1] !== 'name') {
+    return null;
+  }
+  const { kind, name } = target as { kind: unknown; name: unknown };
+  if (kind !== 'local' && kind !== 'remote') return null;
+  if (
+    typeof name !== 'string' ||
+    name.length > MAX_BRANCH_NAME ||
+    branchNameProblem(name) !== null
+  ) {
+    return null;
+  }
+  return { value: { target: { kind, name }, confirmDetached: confirm } };
 }
 
 /** One `{ x, y }` with finite coordinates inside a sane window. */

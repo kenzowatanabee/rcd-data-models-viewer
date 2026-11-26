@@ -1,4 +1,5 @@
 /** What quick open can find, and how results are grouped. Pure. */
+import type { BranchInfo } from '../desktop/gitTypes';
 import type { GraphNode } from '../indexer/types';
 import type { GraphResponse, HeadingsResponse } from '../server/api';
 import {
@@ -10,7 +11,13 @@ import {
 import type { ShortcutId } from './shortcuts';
 
 export type PaletteKind =
-  'dataset' | 'pipeline' | 'doc' | 'external' | 'heading' | 'command';
+  | 'dataset'
+  | 'pipeline'
+  | 'doc'
+  | 'external'
+  | 'heading'
+  | 'command'
+  | 'branch';
 
 export type CommandId =
   | 'go-docs'
@@ -29,7 +36,8 @@ export type CommandId =
   | 'density-compact'
   | 'new-tab'
   | 'close-tab'
-  | 'reopen-tab';
+  | 'reopen-tab'
+  | 'switch-branch';
 
 export interface PaletteItem extends Candidate {
   kind: PaletteKind;
@@ -109,6 +117,10 @@ export interface CommandContext {
   sidebarCollapsed: boolean;
   /** The keys bound to a shortcut, as shown; null when unbound. */
   hint?: (id: ShortcutId) => string | null;
+  /** The desktop app with a git repository open: "Switch branch…". */
+  canSwitchBranch?: boolean;
+  /** Its menu shortcut, as shown. */
+  switchBranchHint?: string | null;
 }
 
 const DEFAULT_HINTS = (id: ShortcutId): string | null =>
@@ -188,6 +200,16 @@ export function commandItems(context: CommandContext): PaletteItem[] {
       hint('toggle-sidebar'),
     ),
   );
+  if (context.canSwitchBranch === true) {
+    items.push(
+      command(
+        'switch-branch',
+        'Switch branch…',
+        'git checkout branches change',
+        context.switchBranchHint ?? null,
+      ),
+    );
+  }
   if (context.section === 'docs' && context.node !== null) {
     items.push(
       command('show-in-graph', 'Show this doc in the graph', 'lineage'),
@@ -235,6 +257,30 @@ export function contentItems(
   return items;
 }
 
+export const branchItemId = (branch: Pick<BranchInfo, 'kind' | 'name'>) =>
+  `branch:${branch.kind}:${branch.name}`;
+
+/** Branches as quick open results (desktop app); the current one is left out. */
+export function branchItems(
+  branches: readonly BranchInfo[],
+  remote: string | null,
+): PaletteItem[] {
+  return branches
+    .filter((branch) => !branch.current)
+    .map((branch) => ({
+      id: branchItemId(branch),
+      label: branch.name,
+      kind: 'branch',
+      fields: [field(branch.name, 0), field('switch branch git', 2)],
+      marker: null,
+      meta: branch.kind === 'remote' ? `on ${remote ?? 'the remote'}` : 'local',
+      file: null,
+      anchor: null,
+      node: null,
+      command: null,
+    }));
+}
+
 export const GROUP_TITLES: Record<PaletteKind, string> = {
   dataset: 'Datasets',
   pipeline: 'Pipelines',
@@ -242,6 +288,7 @@ export const GROUP_TITLES: Record<PaletteKind, string> = {
   external: 'Undocumented names',
   heading: 'Headings',
   command: 'Commands',
+  branch: 'Switch to branch',
 };
 
 /** At most this many results per group, so headings do not crowd out docs. */
@@ -252,6 +299,7 @@ const GROUP_LIMIT: Record<PaletteKind, number> = {
   external: 5,
   heading: 8,
   command: 6,
+  branch: 8,
 };
 
 export interface ResultRow {

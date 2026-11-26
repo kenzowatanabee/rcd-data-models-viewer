@@ -118,13 +118,20 @@ interface Props {
   /** `rail`: an icon button whose popover opens to the right. */
   placement: 'sidebar' | 'rail';
   onClone: () => void;
+  /** Opens the branch picker (desktop app). */
+  onSwitchBranch?: () => void;
 }
 
 /**
  * The docs folder, with the git summary in the desktop app; its popover has
  * the git details, Fetch and Pull, and the folder actions.
  */
-export function FolderControl({ docsPath, placement, onClone }: Props) {
+export function FolderControl({
+  docsPath,
+  placement,
+  onClone,
+  onSwitchBranch,
+}: Props) {
   const git = useGitState();
   const folders = useFolderState();
   const [open, setOpen] = useState(false);
@@ -234,7 +241,17 @@ export function FolderControl({ docsPath, placement, onClone }: Props) {
             </p>
           ) : (
             <>
-              <GitPanel state={git} />
+              <GitPanel
+                state={git}
+                {...(onSwitchBranch === undefined
+                  ? {}
+                  : {
+                      onSwitchBranch: () => {
+                        setOpen(false);
+                        onSwitchBranch();
+                      },
+                    })}
+              />
               <FolderActions
                 folders={folders}
                 onClone={onClone}

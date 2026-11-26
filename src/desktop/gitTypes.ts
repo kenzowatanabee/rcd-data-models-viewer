@@ -60,7 +60,11 @@ export type GitRefusal =
   | 'would-overwrite'
   | 'invalid-url'
   | 'no-destination'
-  | 'destination-exists';
+  | 'destination-exists'
+  | 'invalid-branch'
+  | 'no-branch'
+  | 'already-current'
+  | 'unreachable-head';
 
 export interface GitFailed {
   status: 'failed';
@@ -84,8 +88,15 @@ export type StatusResult = { status: 'ok'; repo: RepoStatus } | GitFailed;
 export type ActionResult =
   | {
       status: 'ok';
-      action: 'fetch' | 'pull';
+      action: 'fetch' | 'pull' | 'switch';
       message: string;
+      /** Switch only: the branch before (null when detached) and after. */
+      previous?: string | null;
+      branch?: string;
+      /** Switch only: a local tracking branch was created. */
+      created?: boolean;
+      /** Switch only: uncommitted changes carried over to the new branch. */
+      localEdits?: number;
       /** Pull only: commits and files brought in, and the new HEAD. */
       commits?: number;
       files?: number;
@@ -107,7 +118,48 @@ export interface CloneProgress {
   percent: number | null;
 }
 
-export type GitTask = 'status' | 'fetch' | 'pull' | 'clone';
+export type GitTask =
+  'status' | 'fetch' | 'pull' | 'clone' | 'branches' | 'switch';
+
+/** One branch in the picker. */
+export interface BranchInfo {
+  /** `remote`: a branch on the current remote that no local branch tracks. */
+  kind: 'local' | 'remote';
+  /** Without `refs/heads/` or `<remote>/`, such as `docs/some-change`. */
+  name: string;
+  current: boolean;
+  /** Local only: such as `origin/main`, or null when it tracks nothing. */
+  upstream: string | null;
+  upstreamGone: boolean;
+  /** Local only, against the upstream as last fetched. */
+  ahead: number | null;
+  behind: number | null;
+  /** Last commit time in ms since the epoch, and its subject (shortened). */
+  date: number | null;
+  subject: string;
+  /** Remote only: a local branch of the same name exists (tracking something else or nothing). */
+  localExists: boolean;
+}
+
+export interface BranchList {
+  /** The remote whose branches are listed, or null when there is none. */
+  remote: string | null;
+  branches: BranchInfo[];
+  /** More branches exist than are listed. */
+  truncated: boolean;
+  /** Remote branches are as of this fetch (ms since the epoch). */
+  lastFetch: number | null;
+  /** Null on a detached HEAD. */
+  current: string | null;
+}
+
+export type BranchListResult = { status: 'ok'; list: BranchList } | GitFailed;
+
+/** What the page asks to switch to; the main process looks it up again. */
+export interface BranchTarget {
+  kind: 'local' | 'remote';
+  name: string;
+}
 
 /** Everything the page shows about git, pushed on every change. */
 export interface GitState {

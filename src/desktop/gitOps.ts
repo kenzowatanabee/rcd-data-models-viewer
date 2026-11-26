@@ -1,9 +1,19 @@
-// The only git operations the app runs: status, fetch, fast-forward pull and
-// clone. Each one builds fixed argument arrays; nothing from the page is
-// ever passed to git except a clone URL that `parseCloneUrl` accepted.
+// The only git operations the app runs: status, fetch, fast-forward pull,
+// clone, and listing and switching branches. Each one builds fixed argument
+// arrays; nothing from the page is ever passed to git except a clone URL
+// that `parseCloneUrl` accepted and a branch name found in a fresh ref list.
 import fs from 'node:fs';
 import path from 'node:path';
 
+import {
+  REF_FORMAT,
+  blockedMessage,
+  branchNameProblem,
+  buildBranches,
+  parseRefList,
+  switchBlockers,
+  switchDecision,
+} from './gitBranches';
 import type { GitRunner, RunResult } from './gitRunner';
 import {
   categorise,
@@ -19,6 +29,8 @@ import {
 import { isRemoteName, pullDecision, pullPrecheck } from './gitPolicy';
 import type {
   ActionResult,
+  BranchListResult,
+  BranchTarget,
   CloneProgress,
   GitFailed,
   GitFailure,
@@ -34,6 +46,8 @@ export const TIMEOUTS = {
   fetch: 180_000,
   backgroundFetch: 60_000,
   merge: 60_000,
+  /** A checkout of a large branch writes many files. */
+  switch: 120_000,
   clone: 30 * 60_000,
 } as const;
 
@@ -79,6 +93,48 @@ export const GIT_ARGS = {
     to,
     '--',
   ],
+  /** Local branches and the remote's branches; nothing else. */
+  listBranches: (remote: string | null) => [
+    'for-each-ref',
+    `--format=${REF_FORMAT}`,
+    'refs/heads/',
+    ...(remote === null ? [] : [`refs/remotes/${remote}/`]),
+  ],
+  /** On a detached HEAD: is its commit on any branch? */
+  headOnBranch: [
+    'for-each-ref',
+    '--count=1',
+    '--contains',
+    'HEAD',
+    '--format=%(refname)',
+    'refs/heads/',
+    'refs/remotes/',
+  ],
+  /**
+   * An existing local branch. `switch` takes a branch only (never a tag,
+   * never detaches without --detach); --no-guess stops it creating one from
+   * a remote branch of the same name. Never -f, --discard-changes, -m.
+   */
+  switchTo: (branch: string) => [
+    'switch',
+    '--no-guess',
+    '--no-recurse-submodules',
+    safeName(branch),
+  ],
+  /**
+   * A new local branch tracking `<remote>/<branch>`, in one step that fails
+   * if the branch exists. The start point is the full ref, so a tag or
+   * local branch spelled like it cannot be picked instead.
+   */
+  switchTrack: (branch: string, start: string) => [
+    'switch',
+    '--no-guess',
+    '--no-recurse-submodules',
+    '--track',
+    '--create',
+    safeName(branch),
+    safeName(start),
+  ],
   clone: (url: string, target: string) => [
     'clone',
     '--progress',
@@ -88,6 +144,14 @@ export const GIT_ARGS = {
     target,
   ],
 } as const;
+
+/** A last guard: the callers have checked names already. */
+function safeName(name: string): string {
+  if (name.startsWith('-') || /[\0\n\r]/.test(name)) {
+    throw new Error('Refusing an unsafe ref name');
+  }
+  return name;
+}
 
 const failed = (
   category: GitFailure,
@@ -438,4 +502,165 @@ export async function cloneRepo(
     retryDelay: 200,
   });
   return failureOf(result, 'clone');
+}
+
+interface FreshBranches {
+  repo: RepoStatus;
+  remote: string | null;
+  branches: ReturnType<typeof buildBranches>;
+}
+
+/** Status, then the ref list, read fresh. */
+async function freshBranches(
+  git: GitRunner,
+  folder: string,
+  action: string,
+  limit?: number,
+): Promise<FreshBranches | GitFailed> {
+  const status = await readStatus(git, folder);
+  if (status.status !== 'ok') return status;
+  const repo = status.repo;
+  const remote = repo.remote?.name ?? null;
+  const refs = await git.run(GIT_ARGS.listBranches(remote), {
+    cwd: folder,
+    timeoutMs: TIMEOUTS.status,
+  });
+  if (!ok(refs)) return failureOf(refs, action);
+  return {
+    repo,
+    remote,
+    branches: buildBranches(
+      parseRefList(refs.stdout),
+      remote,
+      repo.lastFetch,
+      limit,
+    ),
+  };
+}
+
+/** The branches for the picker; git changes nothing. */
+export async function listBranches(
+  git: GitRunner,
+  folder: string,
+): Promise<BranchListResult> {
+  const fresh = await freshBranches(git, folder, 'list the branches');
+  if ('status' in fresh) return fresh;
+  return { status: 'ok', list: fresh.branches.list };
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/**
+ * Switches to `target` after looking it up in a ref list read just now.
+ * Anything that could lose work is refused, by the app or by git itself
+ * (git never overwrites uncommitted changes without --force or --merge).
+ */
+export async function switchBranch(
+  git: GitRunner,
+  folder: string,
+  target: BranchTarget,
+  options: { confirmDetached: boolean },
+): Promise<ActionResult> {
+  const action = 'switch branches';
+  // Checked again here so nothing reaches git, whoever calls
+  const problem = branchNameProblem(target.name);
+  if (problem !== null) {
+    return { status: 'refused', reason: 'invalid-branch', message: problem };
+  }
+  const fresh = await freshBranches(git, folder, action, Infinity);
+  if ('status' in fresh) return fresh;
+  const { repo, remote, branches } = fresh;
+  const opts = { cwd: folder, timeoutMs: TIMEOUTS.status };
+
+  let headReachable: boolean | null = null;
+  if (repo.branch === null && repo.head !== null) {
+    const contains = await git.run(GIT_ARGS.headOnBranch, opts);
+    if (!ok(contains)) return failureOf(contains, action);
+    headReachable = contains.stdout.trim() !== '';
+  }
+  const decision = switchDecision({
+    target,
+    repo,
+    branches,
+    remote,
+    headReachable,
+    confirmDetached: options.confirmDetached,
+  });
+  if (!decision.ok) {
+    return {
+      status: 'refused',
+      reason: decision.reason,
+      message: decision.message,
+    };
+  }
+  const plan = decision.plan;
+
+  const old = await git.run(GIT_ARGS.head, opts);
+  const from = ok(old) ? old.stdout.trim() : null;
+  const args =
+    plan.mode === 'local'
+      ? GIT_ARGS.switchTo(plan.branch)
+      : GIT_ARGS.switchTrack(plan.branch, plan.start);
+  // Not cancellable: stopping a checkout halfway would leave a mess
+  const switched = await git.run(args, {
+    cwd: folder,
+    timeoutMs: TIMEOUTS.switch,
+  });
+  if (!ok(switched)) {
+    const blockers = switchBlockers(switched.stderr);
+    const files = [...blockers.tracked, ...blockers.untracked];
+    const now = await git.run(GIT_ARGS.head, opts);
+    const unchanged = ok(now) && now.stdout.trim() === from;
+    if (files.length > 0 && unchanged) {
+      return {
+        status: 'refused',
+        reason: 'would-overwrite',
+        files,
+        message: blockedMessage(plan.branch, blockers),
+      };
+    }
+    return failureOf(switched, action);
+  }
+
+  const head = await git.run(GIT_ARGS.head, opts);
+  const to = head.stdout.trim();
+  const changed =
+    from === null ? null : await git.run(GIT_ARGS.changedFiles(from, to), opts);
+  const fileCount =
+    changed === null
+      ? 0
+      : changed.stdout.split('\0').filter((name) => name !== '').length;
+  const after = await readStatus(git, folder);
+  const edits =
+    after.status === 'ok'
+      ? after.repo.changes.modified +
+        after.repo.changes.untracked +
+        after.repo.changes.conflicted
+      : 0;
+  const previous = repo.branch;
+  const parts = [
+    `Switched ${previous === null ? `from a detached HEAD (${repo.head ?? '?'})` : `from ${previous}`} to ${plan.branch}${plan.mode === 'track' ? `, a new local branch tracking ${plan.upstream}` : ''}; ${plural(fileCount, 'file')} differ between them.`,
+  ];
+  if (edits > 0) {
+    parts.push(
+      `Your ${plural(edits, 'uncommitted local change')} ${edits === 1 ? 'was' : 'were'} kept.`,
+    );
+  }
+  if (plan.mode === 'local' && plan.behindNote) {
+    parts.push(
+      `A local branch ${plan.branch} already existed, so it was checked out; it may be behind ${remote ?? 'the remote'}/${plan.branch}. Pull to update it.`,
+    );
+  }
+  return {
+    status: 'ok',
+    action: 'switch',
+    previous,
+    branch: plan.branch,
+    created: plan.mode === 'track',
+    files: fileCount,
+    head: to.slice(0, 7),
+    localEdits: edits,
+    keptLocalEdits: edits > 0,
+    message: parts.join(' '),
+  };
 }

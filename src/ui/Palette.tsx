@@ -1,4 +1,10 @@
-import { CornerDownLeft, Hash, Search, Terminal } from 'lucide-react';
+import {
+  CornerDownLeft,
+  GitBranch,
+  Hash,
+  Search,
+  Terminal,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { ModalDialog } from './Dialog';
@@ -49,7 +55,9 @@ function RowContent({ row, isOpen }: { row: ResultRow; isOpen: boolean }) {
   const otherField = other === undefined ? undefined : item.fields[other.field];
   let icon: ReactNode = null;
   if (item.kind === 'heading') icon = <Hash size={13} aria-hidden="true" />;
-  else if (item.kind === 'command') {
+  else if (item.kind === 'branch') {
+    icon = <GitBranch size={13} aria-hidden="true" />;
+  } else if (item.kind === 'command') {
     icon = <Terminal size={13} aria-hidden="true" />;
   } else if (item.marker !== null) {
     icon = (

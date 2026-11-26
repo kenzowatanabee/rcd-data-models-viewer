@@ -70,7 +70,7 @@ How it is kept safe:
 
 - The window's page is sandboxed with context isolation and no Node.js: it reaches the
   app only through a small preload API (choose, open, reveal and copy the folder; the
-  git status, fetch, pull and clone described below), and
+  git status, fetch, pull, clone and branch switch described below), and
   the main process checks every call's arguments and that it comes from the app's own
   page.
 - The local server listens on `127.0.0.1` only, on a port picked once and then reused (so
@@ -86,11 +86,11 @@ How it is kept safe:
 
 Not built yet: an installer or packaged app, auto-update and signing.
 
-#### Git: status, fetch, pull and clone
+#### Git: status, fetch, pull, clone and switch branch
 
-The desktop app (not `pnpm start` in a browser) can keep the docs clone up to date and
-make a new clone. It runs the git installed on your computer; it does exactly four
-things and nothing else:
+The desktop app (not `pnpm start` in a browser) can keep the docs clone up to date,
+make a new clone and switch branches. It runs the git installed on your computer; it
+does exactly these things and nothing else:
 
 - **Status**, on the folder control at the bottom of the sidebar (on the rail when the
   sidebar is hidden): the branch, `↓ n` when the
@@ -113,11 +113,51 @@ things and nothing else:
   after the repository inside a folder you choose. An existing folder is never used.
   Progress is shown and the clone can be canceled (the half-made folder is removed).
   The cloned folder then opens.
+- **Switch branch** (click the branch in the folder popover, "Switch branch…" in quick
+  open, **Repository → Switch Branch…**, ⌘⇧B / Ctrl+Shift+B): see below.
 
 What it never does: commit, push, merge (other than the fast-forward), rebase, reset,
-stash, check out or switch branches, clean, change git config, or run hooks. Use your
+stash, create, delete or rename branches (other than the tracking branch below),
+detach HEAD, clean, change git config, or run hooks. Use your
 usual git tool (terminal, GitHub Desktop, your editor) for all of that; the app's
 messages say so when a pull is refused. Only `github.com` can be cloned from.
+
+**Switch branch.** The branch picker lists the local branches (the current one marked
+and first, each with its upstream's `↓ behind` / `↑ ahead` counts, how long ago its last
+commit was and that commit's subject) under "Local", and under "On origin" the branches
+of the current remote that no local branch tracks. Remote branches are as of the
+**last fetch**: the picker says when that was, and its Fetch button fetches and
+refreshes the list. Type to filter (every word must appear in the name), ↑/↓ to move,
+Enter or a click to switch, Esc to close. Up to 200 branches are listed, most recent
+first; the picker says when there are more. Quick open also lists the branches as
+results ("Switch to branch").
+
+- Picking a local branch runs `git switch --no-guess --no-recurse-submodules <branch>`.
+- Picking a branch that is only on the remote creates the local branch tracking it, in
+  one step: `git switch --no-guess --no-recurse-submodules --track --create <branch>
+refs/remotes/<remote>/<branch>`. If a local branch of that name already exists, that
+  one is checked out instead, and the result says it may be behind the remote's.
+- Uncommitted edits to files the two branches have in common carry over, as git does;
+  the result says how many local changes were kept. Nothing is ever discarded: git is
+  never run with `--force`, `--discard-changes`, `--merge`, `--detach` or `--orphan`.
+- After a switch, the result names the previous and the new branch and how many files
+  differ between them, and the index, the sidebar, the graph, Docs health and the open
+  doc reload by themselves. Tabs stay as they are: a tab on a doc the new branch does
+  not have says "This doc is gone", and shows the doc again after switching back.
+- Submodules are not updated, and hooks (such as `post-checkout`) do not run.
+
+A switch is refused, with nothing changed, when: another git operation is running; a
+merge, rebase, cherry-pick, revert or bisect is in progress; another git program holds
+the index lock; the branch is already checked out; the branch no longer exists (the
+page only sends the branch's name and kind; the app looks it up in a list it reads
+again just before switching, so only a branch under `refs/heads/` or the current
+remote's `refs/remotes/<remote>/` can be picked, never a tag, another remote's branch or
+anything spelled like an option); the name is one git would not accept or starts with
+`-`; uncommitted changes or untracked files would be overwritten (the files are named:
+"commit or stash your changes to docs/datasets/a.md, then try again"); and on a
+detached HEAD whose commit no branch contains, until you confirm that it will then be
+reachable only through git's reflog. The usual refusals (git missing, not a
+repository, the repository's own config can start a program) apply too.
 
 **Sign-in.** The app never asks for, stores or shows a password or token: git uses
 your own credential helper (Git Credential Manager on Windows, the macOS keychain, or
@@ -160,6 +200,8 @@ Troubleshooting:
 | Diverged / your branch has commits to push    | Push, or merge/rebase with your usual tool. The app only fast-forwards.                                   |
 | Detached HEAD / no upstream                   | Check out a branch that tracks one (`git switch main`).                                                   |
 | A merge/rebase is in progress                 | Finish or abort it with your usual tool.                                                                  |
+| Switching would overwrite local work          | Commit or stash the listed files (move untracked ones away), then switch again.                           |
+| No branch contains the commit you are on      | Create a branch for it with your usual tool, or confirm to switch anyway (it stays in the reflog).        |
 | Another git program is working (lock file)    | Wait for it. If none is running, a crashed one left `.git/index.lock`: check before removing it.          |
 | Not trusted / dubious ownership               | Run the `git config --global --add safe.directory …` command git suggests, if the folder is yours.        |
 | Repository's own settings can start a program | Inspect `.git/config` in a terminal.                                                                      |
@@ -260,7 +302,7 @@ What it shows:
     scrolled into view only when it is out of sight.
   - The footer is the docs folder: its name and, in the desktop app, the git summary.
     Click it for the full path and Copy path, and in the desktop app the git details
-    with Fetch and Pull and the folder actions. Drag the
+    with Fetch and Pull, the branch (click it to switch branches) and the folder actions. Drag the
     sidebar's edge to resize it (or focus the edge and use the arrow keys;
     double-click resets it), and hide it with `[` or the button at the left of the top
     bar. Right-click a doc (or press the context-menu key) for Open, Open in new tab, Pin
@@ -410,7 +452,7 @@ else. A key already used where the other shortcut also applies is reported, with
 Replace (the other loses it), Swap (the other gets the old key) or Cancel. Refused, with
 the reason: keys that move focus, scroll or edit (Tab, Enter, arrows, Space...),
 Ctrl/⌘+C/V/X/A/Z, the operating system's own (app switching, the Windows key), the
-browser's own in a browser, and the desktop menu's (Open Folder, Fetch, Pull, reload,
+browser's own in a browser, and the desktop menu's (Open Folder, Fetch, Pull, Switch Branch, reload,
 zoom, Close Window) in the desktop app. A shortcut can be left with no keys. Each changed
 shortcut has a reset button, and "Reset all to defaults" resets them all. Changes apply at
 once, are saved, and show everywhere keys are shown (this list, tooltips, quick open,

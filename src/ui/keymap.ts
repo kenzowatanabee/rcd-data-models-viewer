@@ -204,6 +204,7 @@ const DESKTOP_COMMON = [
   'mod+o',
   'mod+shift+f',
   'mod+shift+p',
+  'mod+shift+b',
   'mod+shift+w',
   'mod+r',
   'mod+shift+r',

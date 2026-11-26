@@ -36,6 +36,7 @@ import { AUTO_FETCH_CHOICES } from './gitPolicy';
 import {
   IPC,
   cloneUrlArg,
+  switchArgs,
   folderArg,
   minutesArg,
   isTrustedSender,
@@ -273,6 +274,11 @@ function folderActions(): FolderActions {
         focusWindow();
         win?.webContents.send(IPC.gitOpenClone, null);
       },
+      canSwitch: git.canSwitch(),
+      switchBranch: () => {
+        focusWindow();
+        win?.webContents.send(IPC.gitOpenBranches, null);
+      },
     },
   };
 }
@@ -320,6 +326,10 @@ function registerIpc(): void {
   handle(IPC.gitCancel, noArgs, () => git.cancel());
   handle(IPC.gitChooseCloneParent, noArgs, () => git.chooseCloneParent());
   handle(IPC.gitClone, cloneUrlArg, (url) => git.clone(url));
+  handle(IPC.gitListBranches, noArgs, () => git.listBranches());
+  handle(IPC.gitSwitchBranch, switchArgs, ({ target, confirmDetached }) =>
+    git.switchBranch(target, confirmDetached),
+  );
   handle(
     IPC.gitSetAutoFetch,
     (raw) => minutesArg(raw, AUTO_FETCH_CHOICES),

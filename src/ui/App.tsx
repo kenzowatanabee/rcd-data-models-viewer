@@ -13,6 +13,8 @@ import {
 import type { GraphResponse, HeadingsResponse } from '../server/api';
 import { inAppHref, linkIntent, onNavigate } from './address';
 import { fetchGraph, fetchHeadings, useDocsVersion } from './api';
+import type { BranchList, BranchTarget } from '../desktop/gitTypes';
+import { BranchPicker } from './BranchPicker';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { ModalDialog } from './Dialog';
 import { desktop } from './desktop';
@@ -25,6 +27,8 @@ import { CONTENT_MIN, fitColumns, layoutMode } from './layoutModel';
 import { Palette } from './Palette';
 import {
   adjacentDoc,
+  branchItemId,
+  branchItems,
   commandItems,
   contentItems,
   markerOf,
@@ -480,8 +484,26 @@ export function App({ folderKey, onClone }: Props) {
       writeSetting(STORAGE_KEYS.recent, JSON.stringify(next));
     }
   }
+  // The desktop app's branch picker, and branches as quick open results
+  const [branchPicker, setBranchPicker] = useState<{
+    target: BranchTarget | null;
+  } | null>(null);
+  const [branchList, setBranchList] = useState<BranchList | null>(null);
+  useEffect(() => {
+    if (desktop === null) return;
+    // Repository → Switch Branch… in the menu
+    return desktop.onOpenBranches(() => {
+      setPaletteOpen(false);
+      setBranchPicker({ target: null });
+    });
+  }, []);
   const openPalette = () => {
     setPaletteOpen(true);
+    if (desktop !== null) {
+      void desktop.gitListBranches().then((result) => {
+        setBranchList(result.status === 'ok' ? result.list : null);
+      });
+    }
     if (headings?.version === version) return;
     const asked = version;
     void fetchHeadings().then((result) => {
@@ -494,8 +516,13 @@ export function App({ folderKey, onClone }: Props) {
   });
   const headingIndex = headings?.value ?? null;
   const items = useMemo(
-    () => (data === null ? [] : contentItems(data, headingIndex)),
-    [data, headingIndex],
+    () => [
+      ...(data === null ? [] : contentItems(data, headingIndex)),
+      ...(branchList === null
+        ? []
+        : branchItems(branchList.branches, branchList.remote)),
+    ],
+    [data, headingIndex, branchList],
   );
   const nodeById = useMemo(
     () => new Map((data?.graph.nodes ?? []).map((node) => [node.id, node])),
@@ -522,9 +549,21 @@ export function App({ folderKey, onClone }: Props) {
     nodeFile,
     sidebarCollapsed: sidebarHidden,
     hint: hintOf,
+    canSwitchBranch: desktop !== null,
+    // The menu's accelerator (menu.ts GIT_ACCELERATORS.switchBranch)
+    switchBranchHint: formatSequence(['mod+shift+b']),
   });
   const runItem = (item: PaletteItem, inGraph: boolean) => {
     setPaletteOpen(false);
+    if (item.kind === 'branch') {
+      const branch = branchList?.branches.find(
+        (entry) => branchItemId(entry) === item.id,
+      );
+      if (branch !== undefined) {
+        setBranchPicker({ target: { kind: branch.kind, name: branch.name } });
+      }
+      return;
+    }
     if (item.command === null) {
       const next = pushRecent(recent, item.id);
       setRecent(next);
@@ -574,6 +613,8 @@ export function App({ folderKey, onClone }: Props) {
       case 'open-doc':
         if (nodeFile !== null) go(docHash(nodeFile));
         return;
+      case 'switch-branch':
+        return setBranchPicker({ target: null });
       case 'copy-path':
         if (route.view === 'doc') {
           void navigator.clipboard.writeText(route.file).catch(() => undefined);
@@ -759,6 +800,9 @@ export function App({ folderKey, onClone }: Props) {
       docsPath={docsPath}
       placement={placement}
       onClone={onClone}
+      {...(desktop === null
+        ? {}
+        : { onSwitchBranch: () => setBranchPicker({ target: null }) })}
     />
   );
 
@@ -968,6 +1012,12 @@ export function App({ folderKey, onClone }: Props) {
           onRun={runItem}
           onClose={() => setPaletteOpen(false)}
           open={openFiles}
+        />
+      )}
+      {branchPicker !== null && (
+        <BranchPicker
+          initialTarget={branchPicker.target}
+          onClose={() => setBranchPicker(null)}
         />
       )}
       {helpOpen && (

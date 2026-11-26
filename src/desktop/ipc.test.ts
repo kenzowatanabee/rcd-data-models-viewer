@@ -7,9 +7,51 @@ import {
   minutesArg,
   noArgs,
   pointArg,
+  switchArgs,
 } from './ipc';
 
 describe('IPC argument checks', () => {
+  it('switchArgs takes { kind, name } and a literal boolean', () => {
+    expect(switchArgs([{ kind: 'local', name: 'docs/a' }, false])).toEqual({
+      value: {
+        target: { kind: 'local', name: 'docs/a' },
+        confirmDetached: false,
+      },
+    });
+    expect(
+      switchArgs([{ name: 'main', kind: 'remote' }, true])?.value
+        .confirmDetached,
+    ).toBe(true);
+    for (const args of [
+      [],
+      [{ kind: 'local', name: 'main' }],
+      [{ kind: 'local', name: 'main' }, 'true'],
+      [{ kind: 'local', name: 'main' }, 1],
+      [{ kind: 'tag', name: 'v1' }, false],
+      [{ kind: 'local', name: 'main', extra: 1 }, false],
+      [{ kind: 'local' }, false],
+      ['main', false],
+      [null, false],
+      [{ kind: 'local', name: 42 }, false],
+      ...[
+        '--force',
+        '-f',
+        '--detach',
+        '-c',
+        '--orphan=x',
+        'a\nb',
+        'a\0b',
+        'refs/heads/../x',
+        '@{-1}',
+        'HEAD',
+        '',
+        'x'.repeat(251),
+      ].map((name) => [{ kind: 'local', name }, false]),
+    ]) {
+      expect(switchArgs(args), JSON.stringify(args)).toBeNull();
+    }
+  });
+
   it('noArgs takes nothing', () => {
     expect(noArgs([])).toEqual({ value: null });
     expect(noArgs([1])).toBeNull();
