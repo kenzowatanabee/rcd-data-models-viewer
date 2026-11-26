@@ -984,3 +984,27 @@
 .git-popover:focus {
   outline: none;
 }
+
+/* The branch in the folder popover opens the branch picker */
+.branch-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.branch-button code {
+  overflow-wrap: anywhere;
+}
+
+.branch-button:hover:not(:disabled) {
+  background: var(--color-hover);
+}

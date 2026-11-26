@@ -9,9 +9,16 @@ import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { cloneRepo, fetchRepo, pullRepo, readStatus } from './gitOps';
+import {
+  cloneRepo,
+  fetchRepo,
+  listBranches,
+  pullRepo,
+  readStatus,
+  switchBranch,
+} from './gitOps';
 import { createGitRunner, type GitRunner } from './gitRunner';
-import type { RepoStatus } from './gitTypes';
+import type { BranchList, BranchTarget, RepoStatus } from './gitTypes';
 
 const hasGit = spawnSync('git', ['--version']).status === 0;
 if (!hasGit) console.warn('gitOps tests skipped: git is not installed');
@@ -395,5 +402,387 @@ describe.skipIf(!hasGit)('git operations on real repositories', () => {
       status: 'failed',
       category: 'git-missing',
     });
+  });
+  // Branch switching. `branchSetup` gives the user's clone:
+  // - main, tracking origin/main, 1 behind it
+  // - docs/extra, tracking origin/docs/extra, 1 ahead of it; it adds
+  //   docs/datasets/extra.md and changes README.md
+  // - solo, with no upstream
+  // - on origin only: docs/remote-only, the odd name ODD, and solo
+  // - another remote, `upstream`, with a branch fromother
+  const ODD = 'odd/ünï+x@y#1,2';
+  function branchSetup() {
+    const repos = setup();
+    const { other, mine } = repos;
+    sh(other, 'switch', '-q', '-c', 'docs/extra');
+    push2(other, 'docs/extra', {
+      'docs/datasets/extra.md': '# Extra\n',
+      'README.md': '# Docs on extra\n',
+    });
+    sh(other, 'switch', '-q', '-c', 'docs/remote-only', 'main');
+    push2(other, 'docs/remote-only', { 'docs/datasets/r.md': '# R\n' });
+    sh(other, 'switch', '-q', '-c', ODD, 'main');
+    push2(other, ODD, { 'docs/datasets/odd.md': '# Odd\n' });
+    sh(other, 'switch', '-q', '-c', 'solo', 'main');
+    push2(other, 'solo', { 'docs/datasets/solo-remote.md': '# S\n' });
+    sh(other, 'switch', '-q', 'main');
+    push(other, { 'docs/pipelines/q.md': '# Q\n' }, 'main moves');
+    sh(mine, 'fetch', '-q');
+    sh(mine, 'branch', '-q', '--track', 'docs/extra', 'origin/docs/extra');
+    sh(mine, 'switch', '-q', 'docs/extra');
+    write(mine, 'docs/datasets/local.md', '# Local\n');
+    sh(mine, 'add', '.');
+    sh(mine, 'commit', '-q', '-m', 'local only');
+    sh(mine, 'switch', '-q', 'main');
+    sh(mine, 'branch', '-q', '--no-track', 'solo', 'main');
+    const up = path.join(path.dirname(mine), 'up.git');
+    sh(path.dirname(mine), 'clone', '-q', '--bare', repos.remote, up);
+    sh(up, 'branch', 'fromother', 'main');
+    sh(mine, 'remote', 'add', 'upstream', up);
+    sh(mine, 'fetch', '-q', 'upstream');
+    sh(mine, 'tag', 'v1');
+    return repos;
+  }
+
+  function push2(other: string, branch: string, files: Record<string, string>) {
+    for (const [file, text] of Object.entries(files)) write(other, file, text);
+    sh(other, 'add', '.');
+    sh(other, 'commit', '-q', '-m', `on ${branch}`);
+    sh(other, 'push', '-q', 'origin', branch);
+  }
+
+  async function listOf(folder: string): Promise<BranchList> {
+    const result = await listBranches(git, folder);
+    if (result.status !== 'ok') throw new Error(result.message);
+    return result.list;
+  }
+
+  const local = (name: string): BranchTarget => ({ kind: 'local', name });
+  const remoteTarget = (name: string): BranchTarget => ({
+    kind: 'remote',
+    name,
+  });
+  const branchOf = (dir: string) => sh(dir, 'branch', '--show-current');
+
+  it('lists local, tracking and remote-only branches, nothing else', async () => {
+    const { mine } = branchSetup();
+    const list = await listOf(mine);
+    expect(list.remote).toBe('origin');
+    expect(list.current).toBe('main');
+    expect(list.lastFetch).not.toBeNull();
+    const byKey = new Map(
+      list.branches.map((branch) => [`${branch.kind}:${branch.name}`, branch]),
+    );
+    expect([...byKey.keys()].sort()).toEqual(
+      [
+        'local:main',
+        'local:docs/extra',
+        'local:solo',
+        'remote:docs/remote-only',
+        `remote:${ODD}`,
+        'remote:solo',
+      ].sort(),
+    );
+    expect(byKey.get('local:main')).toMatchObject({
+      current: true,
+      upstream: 'origin/main',
+      ahead: 0,
+      behind: 1,
+    });
+    expect(byKey.get('local:docs/extra')).toMatchObject({
+      current: false,
+      upstream: 'origin/docs/extra',
+      ahead: 1,
+      behind: 0,
+      subject: 'local only',
+    });
+    expect(byKey.get('local:solo')).toMatchObject({ upstream: null });
+    expect(byKey.get('remote:solo')?.localExists).toBe(true);
+    expect(byKey.get(`remote:${ODD}`)).toMatchObject({
+      localExists: false,
+      subject: `on ${ODD}`,
+    });
+    expect(byKey.get('remote:docs/remote-only')?.date).toBeGreaterThan(0);
+  });
+
+  it('switches local to local on a clean tree and reports it', async () => {
+    const { mine } = branchSetup();
+    const result = await switchBranch(git, mine, local('docs/extra'), {
+      confirmDetached: false,
+    });
+    expect(result).toMatchObject({
+      status: 'ok',
+      action: 'switch',
+      previous: 'main',
+      branch: 'docs/extra',
+      created: false,
+      localEdits: 0,
+    });
+    // extra.md, local.md and README.md differ (q.md is only on origin/main)
+    expect(result.status === 'ok' && result.files).toBe(3);
+    expect(branchOf(mine)).toBe('docs/extra');
+    expect(fs.existsSync(path.join(mine, 'docs/datasets/extra.md'))).toBe(true);
+  });
+
+  it('dirty, not overlapping: switches and keeps the edit', async () => {
+    const { mine } = branchSetup();
+    write(mine, 'docs/pipelines/p.md', '# P edited\n');
+    const result = await switchBranch(git, mine, local('docs/extra'), {
+      confirmDetached: false,
+    });
+    expect(result).toMatchObject({ status: 'ok', localEdits: 1 });
+    expect(result.message).toContain('1 uncommitted local change was kept');
+    expect(
+      fs.readFileSync(path.join(mine, 'docs/pipelines/p.md'), 'utf8'),
+    ).toBe('# P edited\n');
+  });
+
+  it('dirty, overlapping: refused with the file named, nothing changed', async () => {
+    const { mine } = branchSetup();
+    write(mine, 'README.md', '# My edit\n');
+    const before = snapshot(mine);
+    const result = await switchBranch(git, mine, local('docs/extra'), {
+      confirmDetached: false,
+    });
+    expect(result).toMatchObject({
+      status: 'refused',
+      reason: 'would-overwrite',
+      files: ['README.md'],
+    });
+    expect(result.message).toContain(
+      'commit or stash your changes to README.md',
+    );
+    expect(snapshot(mine)).toBe(before);
+    expect(branchOf(mine)).toBe('main');
+  });
+
+  it('untracked file the target would overwrite: refused, named', async () => {
+    const { mine } = branchSetup();
+    write(mine, 'docs/datasets/extra.md', '# Mine, untracked\n');
+    const before = snapshot(mine);
+    const result = await switchBranch(git, mine, local('docs/extra'), {
+      confirmDetached: false,
+    });
+    expect(result).toMatchObject({
+      status: 'refused',
+      reason: 'would-overwrite',
+      files: ['docs/datasets/extra.md'],
+    });
+    expect(result.message).toContain('untracked file docs/datasets/extra.md');
+    expect(snapshot(mine)).toBe(before);
+  });
+
+  it('remote-only: creates a local branch tracking it', async () => {
+    const { mine } = branchSetup();
+    const result = await switchBranch(
+      git,
+      mine,
+      remoteTarget('docs/remote-only'),
+      { confirmDetached: false },
+    );
+    expect(result).toMatchObject({
+      status: 'ok',
+      created: true,
+      branch: 'docs/remote-only',
+    });
+    expect(branchOf(mine)).toBe('docs/remote-only');
+    expect(
+      sh(mine, 'rev-parse', '--abbrev-ref', 'docs/remote-only@{upstream}'),
+    ).toBe('origin/docs/remote-only');
+    // And the odd-but-legal name works the same way
+    expect(
+      await switchBranch(git, mine, remoteTarget(ODD), {
+        confirmDetached: false,
+      }),
+    ).toMatchObject({ status: 'ok', created: true });
+    expect(branchOf(mine)).toBe(ODD);
+    expect(sh(mine, 'rev-parse', '--abbrev-ref', `${ODD}@{upstream}`)).toBe(
+      `origin/${ODD}`,
+    );
+  });
+
+  it('remote branch with a same-named local one: switches to the local', async () => {
+    const { mine } = branchSetup();
+    const localSolo = sh(mine, 'rev-parse', 'solo');
+    const result = await switchBranch(git, mine, remoteTarget('solo'), {
+      confirmDetached: false,
+    });
+    expect(result).toMatchObject({ status: 'ok', created: false });
+    expect(result.message).toContain('may be behind origin/solo');
+    expect(sh(mine, 'rev-parse', 'HEAD')).toBe(localSolo);
+    expect(
+      spawnSync('git', ['rev-parse', '--abbrev-ref', 'solo@{upstream}'], {
+        cwd: mine,
+        env,
+      }).status,
+    ).not.toBe(0);
+  });
+
+  it('target deleted between list and switch: refused', async () => {
+    const { mine } = branchSetup();
+    expect((await listOf(mine)).branches.some((b) => b.name === 'solo')).toBe(
+      true,
+    );
+    sh(mine, 'branch', '-q', '-D', 'solo');
+    const before = snapshot(mine);
+    expect(
+      await switchBranch(git, mine, local('solo'), { confirmDetached: false }),
+    ).toMatchObject({ status: 'refused', reason: 'no-branch' });
+    expect(snapshot(mine)).toBe(before);
+  });
+
+  it('already current, merge in progress and index.lock are refused', async () => {
+    const { other, mine } = branchSetup();
+    expect(
+      await switchBranch(git, mine, local('main'), { confirmDetached: false }),
+    ).toMatchObject({ status: 'refused', reason: 'already-current' });
+
+    const lock = path.join(mine, '.git', 'index.lock');
+    fs.writeFileSync(lock, '');
+    let before = snapshot(mine);
+    expect(
+      await switchBranch(git, mine, local('solo'), { confirmDetached: false }),
+    ).toMatchObject({ status: 'refused', reason: 'locked' });
+    expect(snapshot(mine)).toBe(before);
+    expect(fs.existsSync(lock)).toBe(true);
+    fs.rmSync(lock);
+
+    push(other, { 'docs/datasets/a.md': '# Theirs\n' }, 'theirs');
+    write(mine, 'docs/datasets/a.md', '# Ours\n');
+    sh(mine, 'commit', '-q', '-am', 'ours');
+    sh(mine, 'fetch', '-q');
+    spawnSync('git', ['merge', '-q', 'origin/main'], { cwd: mine, env });
+    expect((await repoOf(mine)).operation).toBe('merge');
+    before = snapshot(mine);
+    expect(
+      await switchBranch(git, mine, local('solo'), { confirmDetached: false }),
+    ).toMatchObject({ status: 'refused', reason: 'in-progress' });
+    expect(snapshot(mine)).toBe(before);
+  });
+
+  it('detached HEAD on a branch commit: switching is allowed', async () => {
+    const { mine } = branchSetup();
+    sh(mine, 'switch', '-q', '--detach', 'main');
+    const result = await switchBranch(git, mine, local('docs/extra'), {
+      confirmDetached: false,
+    });
+    expect(result).toMatchObject({ status: 'ok', previous: null });
+    expect(branchOf(mine)).toBe('docs/extra');
+  });
+
+  it('detached HEAD on a commit no branch has: needs confirmation', async () => {
+    const { mine } = branchSetup();
+    sh(mine, 'switch', '-q', '--detach', 'main');
+    write(mine, 'docs/datasets/lost.md', '# Lost\n');
+    sh(mine, 'add', '.');
+    sh(mine, 'commit', '-q', '-m', 'on detached');
+    const before = snapshot(mine);
+    expect(
+      await switchBranch(git, mine, local('docs/extra'), {
+        confirmDetached: false,
+      }),
+    ).toMatchObject({ status: 'refused', reason: 'unreachable-head' });
+    expect(snapshot(mine)).toBe(before);
+    expect(
+      await switchBranch(git, mine, local('docs/extra'), {
+        confirmDetached: true,
+      }),
+    ).toMatchObject({ status: 'ok', branch: 'docs/extra' });
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'a hostile post-checkout hook does not run',
+    async () => {
+      const { mine } = branchSetup();
+      const marker = path.join(root, `checkout-ran-${counter}`);
+      const hook = path.join(mine, '.git', 'hooks', 'post-checkout');
+      fs.writeFileSync(hook, `#!/bin/sh\ntouch '${marker}'\n`, {
+        mode: 0o755,
+      });
+      expect(
+        await switchBranch(git, mine, local('docs/extra'), {
+          confirmDetached: false,
+        }),
+      ).toMatchObject({ status: 'ok' });
+      expect(
+        await switchBranch(git, mine, remoteTarget('docs/remote-only'), {
+          confirmDetached: false,
+        }),
+      ).toMatchObject({ status: 'ok' });
+      expect(fs.existsSync(marker)).toBe(false);
+      // Control: plain git runs it
+      sh(mine, 'switch', '-q', 'main');
+      expect(fs.existsSync(marker)).toBe(true);
+    },
+  );
+
+  it('rejects hostile identifiers before git runs', async () => {
+    const { mine } = branchSetup();
+    const calls: string[][] = [];
+    const spy: GitRunner = {
+      run: (args, options) => {
+        calls.push([...args]);
+        return git.run(args, options);
+      },
+    };
+    const before = snapshot(mine);
+    for (const name of [
+      '--force',
+      '-f',
+      '--detach',
+      '-c',
+      '--orphan=x',
+      'a\nb',
+      'a\0b',
+      'refs/heads/../x',
+      '@{-1}',
+      'HEAD',
+    ]) {
+      for (const kind of ['local', 'remote'] as const) {
+        expect(
+          await switchBranch(
+            spy,
+            mine,
+            { kind, name },
+            {
+              confirmDetached: true,
+            },
+          ),
+        ).toMatchObject({ status: 'refused', reason: 'invalid-branch' });
+      }
+    }
+    expect(calls).toEqual([]);
+    // Valid names, but not a branch of the current remote: looked up, refused
+    for (const target of [
+      local('v1'),
+      remoteTarget('v1'),
+      remoteTarget('fromother'),
+      remoteTarget('upstream/fromother'),
+      local('origin/main'),
+      local('refs/heads/main'),
+    ]) {
+      expect(
+        await switchBranch(spy, mine, target, { confirmDetached: true }),
+      ).toMatchObject({ status: 'refused', reason: 'no-branch' });
+    }
+    expect(calls.some((args) => args[0] === 'switch')).toBe(false);
+    expect(snapshot(mine)).toBe(before);
+  });
+
+  it('an option-like ref: git will not create it, and the app will not switch to it', async () => {
+    const { mine } = branchSetup();
+    expect(
+      spawnSync('git', ['branch', '--', '--force'], { cwd: mine, env }).status,
+    ).not.toBe(0);
+    // Planted behind git's back: listed, but never handed to git
+    sh(mine, 'update-ref', 'refs/heads/-x', 'HEAD');
+    expect((await listOf(mine)).branches.some((b) => b.name === '-x')).toBe(
+      true,
+    );
+    const before = snapshot(mine);
+    expect(
+      await switchBranch(git, mine, local('-x'), { confirmDetached: false }),
+    ).toMatchObject({ status: 'refused', reason: 'invalid-branch' });
+    expect(snapshot(mine)).toBe(before);
   });
 });

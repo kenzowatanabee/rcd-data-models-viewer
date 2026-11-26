@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { DesktopApi, FolderState, OpenFolderResult } from './bridge';
 import type {
   ActionResult,
+  BranchListResult,
   CloneParentResult,
   CloneProgress,
   CloneResult,
@@ -53,6 +54,16 @@ const api: DesktopApi = {
       IPC.gitSetAutoFetch,
       Number(minutes),
     ) as Promise<GitState>,
+  gitListBranches: () =>
+    ipcRenderer.invoke(IPC.gitListBranches) as Promise<BranchListResult>,
+  gitSwitchBranch: (target, confirmDetached) =>
+    ipcRenderer.invoke(
+      IPC.gitSwitchBranch,
+      { kind: target.kind, name: String(target.name) },
+      confirmDetached === true,
+    ) as Promise<ActionResult>,
+  onOpenBranches: (listener) =>
+    listen<null>(IPC.gitOpenBranches, () => listener()),
   onGitState: (listener) => listen<GitState>(IPC.gitState, listener),
   onCloneProgress: (listener) =>
     listen<CloneProgress>(IPC.gitCloneProgress, listener),

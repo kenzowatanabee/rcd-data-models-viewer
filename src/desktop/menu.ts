@@ -19,12 +19,16 @@ export interface GitMenuActions {
   fetch: () => void;
   pull: () => void;
   clone: () => void;
+  /** A repo is open and git is idle: the branch picker can open. */
+  canSwitch: boolean;
+  switchBranch: () => void;
 }
 
 /** Mod+Shift: the viewer's own keys are unmodified letters and mod+K. */
 export const GIT_ACCELERATORS = {
   fetch: 'CmdOrCtrl+Shift+F',
   pull: 'CmdOrCtrl+Shift+P',
+  switchBranch: 'CmdOrCtrl+Shift+B',
 } as const;
 
 export function revealLabel(platform: string): string {
@@ -70,7 +74,7 @@ export function folderMenuTemplate(
  * The application menu. Only modified shortcuts appear here; the viewer's
  * own keys (rebindable in Settings: mod+K, mod+T/W/Tab for tabs, /, [, ],
  * g sequences...) stay with the page, so no item may take mod+W, mod+T or
- * mod+Tab. Git uses mod+Shift+F and mod+Shift+P. keymap.ts lists these
+ * mod+Tab. Git uses mod+Shift+F, mod+Shift+P and mod+Shift+B. keymap.ts lists these
  * accelerators as reserved in the desktop app.
  */
 export function appMenuTemplate(
@@ -170,6 +174,12 @@ export function appMenuTemplate(
           accelerator: GIT_ACCELERATORS.pull,
           enabled: actions.git.canPull,
           click: actions.git.pull,
+        },
+        {
+          label: 'Switch Branch…',
+          accelerator: GIT_ACCELERATORS.switchBranch,
+          enabled: actions.git.canSwitch,
+          click: actions.git.switchBranch,
         },
         { type: 'separator' },
         { label: 'Clone Repository…', click: actions.git.clone },

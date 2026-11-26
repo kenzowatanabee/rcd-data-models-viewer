@@ -141,4 +141,6 @@ export const RUNNING_TEXT = {
   fetch: 'Fetching…',
   pull: 'Pulling…',
   clone: 'Cloning…',
+  branches: 'Listing branches…',
+  switch: 'Switching branch…',
 } as const;

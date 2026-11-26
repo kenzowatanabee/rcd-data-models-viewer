@@ -17,6 +17,8 @@ const actions = (platform: string, current: string | null) => ({
     fetch: () => undefined,
     pull: () => undefined,
     clone: () => undefined,
+    canSwitch: current !== null,
+    switchBranch: () => undefined,
   },
 });
 
@@ -49,6 +51,7 @@ describe('appMenuTemplate', () => {
       'CmdOrCtrl+Shift+W',
       'CmdOrCtrl+Shift+F',
       'CmdOrCtrl+Shift+P',
+      'CmdOrCtrl+Shift+B',
     ]);
     expect(new Set(accelerators).size).toBe(accelerators.length);
     // mod+K is quick open in the page

@@ -1,8 +1,12 @@
-import { ArrowDown, ArrowUp, GitBranch } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronsUpDown, GitBranch } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 
 import { AUTO_FETCH_CHOICES } from '../desktop/gitPolicy';
-import type { ActionResult, GitState } from '../desktop/gitTypes';
+import type {
+  ActionResult,
+  BranchListResult,
+  GitState,
+} from '../desktop/gitTypes';
 import { useDocsVersion } from './api';
 import { desktop } from './desktop';
 import {
@@ -40,7 +44,11 @@ export function useGitState(): GitState | null {
   return state;
 }
 
-function ResultMessage({ result }: { result: ActionResult }) {
+export function ResultMessage({
+  result,
+}: {
+  result: ActionResult | Exclude<BranchListResult, { status: 'ok' }>;
+}) {
   const tone =
     result.status === 'ok'
       ? 'git-result-ok'
@@ -75,7 +83,7 @@ export function GitSummary({ state }: { state: GitState | null }) {
   const running = state?.running ?? null;
   return (
     <span className={`git-indicator git-tone-${indicator.tone}`}>
-      {running !== null && running !== 'status' ? (
+      {running !== null && running !== 'status' && running !== 'branches' ? (
         <span className="spinner git-spinner" aria-hidden="true" />
       ) : (
         <GitBranch size={14} aria-hidden="true" />
@@ -104,8 +112,17 @@ export function GitSummary({ state }: { state: GitState | null }) {
 export const gitSummaryText = (state: GitState | null) =>
   indicatorOf(state).summary;
 
-/** The git details with Fetch and Pull, for the folder popover. */
-export function GitPanel({ state }: { state: GitState | null }) {
+/**
+ * The git details with Fetch and Pull, for the folder popover; with
+ * `onSwitchBranch`, the branch opens the branch picker.
+ */
+export function GitPanel({
+  state,
+  onSwitchBranch,
+}: {
+  state: GitState | null;
+  onSwitchBranch?: () => void;
+}) {
   const [now] = useState(() => Date.now());
   const id = useId();
   if (desktop === null) return null;
@@ -115,7 +132,9 @@ export function GitPanel({ state }: { state: GitState | null }) {
   const repo = state?.status?.status === 'ok' ? state.status.repo : null;
   const failure = state?.status?.status === 'failed' ? state.status : null;
   const running = state?.running ?? null;
-  const userRunning = running === 'fetch' || running === 'pull';
+  const userRunning =
+    running === 'fetch' || running === 'pull' || running === 'switch';
+  const branchText = repo?.branch ?? `detached at ${repo?.head ?? '?'}`;
   return (
     <div className="git-panel">
       {state?.unavailable != null && (
@@ -126,7 +145,21 @@ export function GitPanel({ state }: { state: GitState | null }) {
         <dl className="git-facts">
           <dt>Branch</dt>
           <dd>
-            <code>{repo.branch ?? `detached at ${repo.head ?? '?'}`}</code>
+            {onSwitchBranch === undefined ? (
+              <code>{branchText}</code>
+            ) : (
+              <button
+                type="button"
+                className="branch-button"
+                title={`${branchText}: switch branch`}
+                aria-label={`Branch ${branchText}. Switch branch…`}
+                disabled={running === 'switch'}
+                onClick={onSwitchBranch}
+              >
+                <code>{branchText}</code>
+                <ChevronsUpDown size={12} aria-hidden="true" />
+              </button>
+            )}
             {repo.upstream !== null && (
               <>
                 {' → '}

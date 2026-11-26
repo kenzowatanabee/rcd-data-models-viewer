@@ -108,6 +108,9 @@ describe('reserved keys', () => {
 
   it('refuses the desktop menu’s accelerators in the desktop app', () => {
     expect(reservedReason('mod+o', desktop)).toMatch(/menu/);
+    // Repository → Switch Branch…
+    expect(reservedReason('mod+shift+b', desktop)).toMatch(/menu/);
+    expect(reservedReason('mod+shift+b', browser)).toBeNull();
     expect(reservedReason('mod+q', desktopMac)).toMatch(/menu/);
   });
 

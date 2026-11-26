@@ -4,11 +4,20 @@
 import fs from 'node:fs';
 
 import type { OpenFolderResult } from './bridge';
-import { cloneRepo, fetchRepo, pullRepo, readStatus } from './gitOps';
+import {
+  cloneRepo,
+  fetchRepo,
+  listBranches,
+  pullRepo,
+  readStatus,
+  switchBranch,
+} from './gitOps';
 import { autoFetchDue, pullDecision } from './gitPolicy';
 import { createGitRunner, locateGit, type GitRunner } from './gitRunner';
 import type {
   ActionResult,
+  BranchListResult,
+  BranchTarget,
   CloneParentResult,
   CloneProgress,
   CloneResult,
@@ -30,7 +39,7 @@ export interface GitControllerDeps {
   /** The native folder dialog; null when canceled. */
   chooseDirectory: () => Promise<string | null>;
   openFolder: (folder: string) => Promise<OpenFolderResult>;
-  /** Tells the viewer that docs changed on disk (after a pull). */
+  /** Tells the viewer that docs changed on disk (after a pull or switch). */
   docsChanged: () => void;
   autoFetchMinutes: () => number;
   saveAutoFetchMinutes: (minutes: number) => void;
@@ -80,6 +89,14 @@ export function createGitController(deps: GitControllerDeps) {
     } finally {
       running = null;
       abort = null;
+    }
+  }
+
+  /** A status read takes a moment: wait for it rather than say busy. */
+  async function afterQuickRead(): Promise<void> {
+    for (let i = 0; i < 50; i += 1) {
+      if (running !== 'status' && running !== 'branches') return;
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 
@@ -224,6 +241,51 @@ export function createGitController(deps: GitControllerDeps) {
       action('pull', (git, folder, signal) =>
         pullRepo(git, folder, { signal }),
       ),
+    async listBranches(): Promise<BranchListResult> {
+      const folder = deps.folder();
+      if (runner === null) return missing();
+      if (folder === null) {
+        return {
+          status: 'failed',
+          category: 'not-repo',
+          message: 'Open a docs folder first.',
+        };
+      }
+      await afterQuickRead();
+      const result = await exclusive('branches', (git) =>
+        listBranches(git, folder),
+      );
+      publish();
+      if (result === null) {
+        return { status: 'failed', category: 'failed', message: BUSY.message };
+      }
+      return result;
+    },
+    async switchBranch(
+      target: BranchTarget,
+      confirmDetached: boolean,
+    ): Promise<ActionResult> {
+      const folder = deps.folder();
+      if (runner === null) return missing();
+      if (folder === null) return noFolder();
+      await afterQuickRead();
+      const result = await exclusive('switch', async (git) => {
+        const outcome = await switchBranch(git, folder, target, {
+          confirmDetached,
+        });
+        status = await readStatus(git, folder);
+        return outcome;
+      });
+      if (result === null) return BUSY;
+      last = result;
+      // The watcher may miss files a large checkout rewrites or deletes
+      if (result.status === 'ok') deps.docsChanged();
+      publish();
+      return result;
+    },
+    canSwitch(): boolean {
+      return running === null && status?.status === 'ok';
+    },
     cancel(): void {
       // A pull stops only during its fetch: gitOps never passes the signal
       // to the fast-forward itself
