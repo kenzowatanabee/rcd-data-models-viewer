@@ -1045,3 +1045,8 @@
 .graph-canvas .react-flow {
   color-scheme: inherit;
 }
+
+/* The menu takes focus when its text is clicked; it is not a tab stop */
+.graph-popover:focus {
+  outline: none;
+}

@@ -979,3 +979,8 @@
     display: none;
   }
 }
+
+/* The popover takes focus when its text is clicked; it is not a tab stop */
+.git-popover:focus {
+  outline: none;
+}
