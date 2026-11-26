@@ -25,6 +25,9 @@
 }
 
 .health-scroll {
+  /* Positioned, so the screen-reader-only labels inside (absolutely
+     positioned) scroll with it instead of stretching the whole page */
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
