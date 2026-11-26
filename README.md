@@ -50,9 +50,10 @@ the reason. A path on the command line always wins over the remembered one; if t
 already running, the running window opens it instead of a second window starting.
 
 To switch folders: **File → Open Folder…** (⌘O / Ctrl+O), **File → Open Recent** (the last
-five), or the folder name in the top bar, whose menu also has "Reveal in Finder" / "Show in
-File Explorer" and "Copy Path". The viewer reloads for the new folder from its landing
-page. Window size, position and maximised state are remembered too.
+five), the folder control at the bottom of the sidebar (recent folders, Open another
+folder…, Clone…, "Reveal in Finder" / "Show in File Explorer", Copy path) or
+**Settings → General**. The viewer reloads for the new folder and restores that folder's
+own tabs. Window size, position and maximised state are remembered too.
 
 The app's settings are one JSON file, `settings.json`, in:
 
@@ -91,7 +92,8 @@ The desktop app (not `pnpm start` in a browser) can keep the docs clone up to da
 make a new clone. It runs the git installed on your computer; it does exactly four
 things and nothing else:
 
-- **Status**, in the top bar next to the folder name: the branch, `↓ n` when the
+- **Status**, on the folder control at the bottom of the sidebar (on the rail when the
+  sidebar is hidden): the branch, `↓ n` when the
   upstream has commits you do not have, `↑ n` when you have commits it does not, and a
   dot when there are uncommitted local changes. "Not a git repository", "no upstream",
   "Git not installed" and an operation in progress (merge, rebase...) are shown there
@@ -164,18 +166,68 @@ Troubleshooting:
 
 What it shows:
 
-- **Top bar:** the three sections, Docs, Lineage graph and Docs health ("Docs" returns
-  to the last doc open; Docs health shows how many things there are to fix), "Go to…"
-  with its shortcut (quick open, see below), the name of the docs folder being viewed
-  (the full path on hover), row density (comfortable or compact) and the theme: light,
-  dark or the system's. Density and theme are remembered, and diagrams and the graph
-  switch with the theme. Below 1100 px the folder name is hidden (in the desktop app it
-  becomes an icon), and below 960 px the
-  section names and "Go to…" become icons (named on hover and to screen readers). The
-  bar is marked as the drag area for a future frameless desktop window; this has no
-  effect in a browser.
-- **Sidebar:** pinned docs and the last 6 opened (each shown only when not empty), then
-  the docs in groups that can be folded, each with its count:
+- **Rail:** a narrow column on the far left, always shown: Docs, Lineage graph and Docs
+  health (with how many things there are to fix), then quick open, the docs folder (when
+  the sidebar is hidden), the keyboard shortcuts and Settings. Each is named on hover with
+  its shortcut. Lineage graph and Docs health show the most recently used tab of that
+  kind, or open one; Docs does the same for docs, and toggles the sidebar when a doc is
+  already shown.
+- **Top bar:** show or hide the sidebar, back and forward for the active tab, the tabs, and
+  "Go to…" (quick open). It is marked as the drag area for a future frameless desktop
+  window; this has no effect in a browser.
+- **Tabs:** each tab holds one view: a doc (with its Rendered or Markdown view, section
+  and scroll position), the lineage graph (selection, focus, options and viewport), Docs
+  health (with its filter) or Home.
+  - A click on a doc in the sidebar, a link, a quick open result or a lineage item opens
+    it in the active tab. Ctrl/⌘-click or the middle button opens it in a new tab in the
+    background, Shift-click in a new tab shown at once; the sidebar's right-click menu
+    has "Open in new tab". New tabs open right of the active one, in the order opened.
+    Docs open in a tab have a small dot in the sidebar and "Open in a tab" in quick open.
+  - Each tab has its own back and forward history (the arrows in the top bar, Alt+← /
+    Alt+→, the mouse's back and forward buttons). The browser's own history is not
+    used: the address always shows the active tab, switching tabs replaces it, and
+    typing or pasting an address opens it in the active tab, so a copied address and a
+    reload both work. The browser's back button leaves the viewer.
+  - Tabs are dragged to reorder; the middle button or the × closes one; closing the
+    active tab shows its right-hand neighbour (else the left one); closing the last tab
+    leaves a Home tab. The right-click menu (or the context-menu key, or Shift+F10) has
+    Close, Close others, Close to the right, Pin tab, Copy path and Reveal in sidebar.
+    Pinned tabs are icons at the left and are kept by "Close others" and "Close to the
+    right". The last 20 closed tabs can be reopened. On the strip, ← and → move between
+    tabs, Enter shows one and Delete closes it. When the tabs do not fit, the strip
+    scrolls (the wheel scrolls it sideways), its edges fade and a ⌄ button lists all
+    tabs.
+  - The six most recently used tabs stay loaded while hidden, so going back to one
+    keeps everything as it was, including table filters, opened `<details>`, diagram
+    zoom and the graph's viewport; live refresh updates them too. An older tab is
+    rebuilt from its address and scroll position when shown again; those finer states
+    are then reset.
+  - The tabs, their order, pins, the active tab and each tab's address and scroll
+    position are saved per docs folder and restored at the next start (or only Home,
+    if Settings → General says so); back/forward history is not saved. A link with an
+    address opens in its own tab, or shows the tab that already has it. A saved tab
+    whose doc has been removed says so and offers to close it.
+- **Settings** (the gear on the rail, Ctrl/⌘+, or "Settings" in quick open), a dialog
+  with sections:
+  - **General:** the docs folder. In the desktop app: open another, recent folders,
+    clone, reveal; in a browser it is shown read-only, since `pnpm start <folder>` sets
+    it. What opens at start: the tabs from last time or Home.
+  - **Appearance:** theme (light, dark or the system's), row density, sidebar grouping
+    and wrapping in the Markdown view. Changes apply at once; diagrams and the graph
+    follow the theme.
+  - **Shortcuts:** see Keyboard shortcuts below.
+  - **Git** (desktop app): how often to check for updates in the background.
+  - **About:** the version, where settings are kept, and "Reset all settings".
+
+  The viewer's settings are kept in the browser's storage for the page's address (in
+  the desktop app, its own storage in the app's user data folder; the folder list,
+  window and git settings are in `settings.json` there, shown under About). The desktop
+  app keeps its port between runs so that storage stays the same; it is not copied
+  into `settings.json`.
+
+- **Sidebar:** the doc tree on every tab (on graph and health tabs it starts hidden; the
+  choice to show or hide it is remembered for docs, the graph and health apart): pinned
+  docs (when there are any), then the docs in groups that can be folded, each with its count:
   - **Group** chooses how datasets are listed, and is remembered: **Layer** (the
     default: Source, Dimension, Intermediate, Output, then anything else, each a
     subgroup with its colour marker), **A–Z** (one list, with the layer after each
@@ -206,10 +258,13 @@ What it shows:
     such as `j` do not fire while a row has focus). Only one row is in the Tab order.
     Group headers stay at the top while their group scrolls, and the open doc is
     scrolled into view only when it is out of sight.
-  - The footer has the counts and a link to Docs health with its count. Drag the
+  - The footer is the docs folder: its name and, in the desktop app, the git summary.
+    Click it for the full path and Copy path, and in the desktop app the git details
+    with Fetch and Pull and the folder actions. Drag the
     sidebar's edge to resize it (or focus the edge and use the arrow keys;
     double-click resets it), and hide it with `[` or the button at the left of the top
-    bar. The width, the hidden state, the folded groups, the pins and the grouping are
+    bar. Right-click a doc (or press the context-menu key) for Open, Open in new tab, Pin
+    and Copy path. The width, the hidden state, the folded groups, the pins and the grouping are
     remembered.
 - **Doc page:** a bar stays at the top with where the doc is (Docs › Datasets › Output ›
   name, following the grouping), "Rendered | Markdown" (`m`), a pin button and the
@@ -281,7 +336,7 @@ What it shows:
   each linking to its section; then the repo `README.md`. Doc pages, the landing page
   and Docs health share the same page width and padding, and every scrolling area has
   thin scrollbars in the theme's colours.
-- **Lineage graph** (`#/graph`, in the top bar): see below. There, `/` focuses the
+- **Lineage graph** (`#/graph`, on the rail): see below. There, `/` focuses the
   find box.
 
 The address is `#/doc/<repo-relative path>`, so back, forward and reload work. When a
@@ -293,7 +348,7 @@ clone are refused.
 
 ### Quick open
 
-Ctrl+K (⌘K on macOS), or "Go to…" in the top bar, opens a search box over every dataset,
+Ctrl+K (⌘K on macOS), or "Go to…" in the top bar or the rail, opens a search box over every dataset,
 pipeline and other doc, the undocumented names, the `##` to `####` headings of every
 doc, and a few commands (go to a section, switch the theme, show or hide the sidebar,
 show the open doc in the graph, open the selected graph node's doc, copy the open doc's
@@ -318,21 +373,49 @@ after a doc changes; searching makes no request per keystroke.
 
 ### Keyboard shortcuts
 
-`?` lists them all. They do nothing while typing in a text field (except Ctrl/⌘+K), while
-a dialog is open, or during input-method composition, and none uses a browser shortcut.
+`?` lists them all with the keys in force. They do nothing while typing in a text field
+(except quick open, and the tab and Settings shortcuts bound to Ctrl/⌘), while a dialog
+or menu is open, or during input-method composition.
 
-| Keys                      | Where            | Does                                                                                |
-| :------------------------ | :--------------- | :---------------------------------------------------------------------------------- |
-| Ctrl/⌘+K                  | everywhere       | quick open                                                                          |
-| `?`                       | everywhere       | the list of shortcuts                                                               |
-| `/`                       | everywhere       | focus the sidebar filter (the find box on the graph, the filter on the health page) |
-| `g` `d`, `g` `g`, `g` `h` | everywhere       | go to Docs, the lineage graph, Docs health                                          |
-| `[`                       | doc pages        | show or hide the sidebar                                                            |
-| `]`                       | doc pages, graph | show or hide the right-hand column or side panel                                    |
-| `j` / `k`, Alt+↓ / Alt+↑  | doc pages        | next / previous doc in the sidebar's order                                          |
-| `t`                       | doc pages        | back to the top                                                                     |
-| `m`                       | doc pages        | switch between the rendered page and its Markdown                                   |
-| `f`, `0`                  | graph            | fit to the window, actual size                                                      |
+| Keys (browser)                         | Keys (desktop app)                           | Where      | Does                                                       |
+| :------------------------------------- | :------------------------------------------- | :--------- | :--------------------------------------------------------- |
+| Ctrl/⌘+K                               | Ctrl/⌘+K                                     | everywhere | quick open                                                 |
+| Ctrl/⌘+,                               | Ctrl/⌘+,                                     | everywhere | Settings                                                   |
+| `?`                                    | `?`                                          | everywhere | the list of shortcuts                                      |
+| `/`                                    | `/`                                          | everywhere | focus the sidebar filter (the find box on graph or health) |
+| `g` `d`, `g` `g`, `g` `h`              | the same                                     | everywhere | go to Docs, the lineage graph, Docs health                 |
+| `]`                                    | `]`                                          | everywhere | show or hide the right-hand column or side panel           |
+| Alt+T                                  | Ctrl/⌘+T                                     | tabs       | new tab (Home)                                             |
+| Alt+W                                  | Ctrl/⌘+W                                     | tabs       | close the tab                                              |
+| Alt+Shift+T                            | Ctrl/⌘+Shift+T                               | tabs       | reopen the last closed tab                                 |
+| Alt+PgDn / Alt+PgUp, `g` `t` / `g` `T` | Ctrl+Tab / Ctrl+Shift+Tab, `g` `t` / `g` `T` | tabs       | next / previous tab                                        |
+| Alt+1 … Alt+9                          | Ctrl/⌘+1 … Ctrl/⌘+9                          | tabs       | go to tab 1–8, 9 is the last                               |
+| Alt+← / Alt+→                          | Alt+← / Alt+→ (macOS also ⌘[ / ⌘])           | tabs       | back / forward in the active tab                           |
+| `[`                                    | `[`                                          | doc pages  | show or hide the sidebar                                   |
+| `j` / `k`, Alt+↓ / Alt+↑               | the same                                     | doc pages  | next / previous doc in the sidebar's order                 |
+| `t`                                    | `t`                                          | doc pages  | back to the top                                            |
+| `m`                                    | `m`                                          | doc pages  | switch between the rendered page and its Markdown          |
+| `f`, `0`                               | `f`, `0`                                     | graph      | fit to the window, actual size                             |
+
+On macOS Alt is ⌥. A browser keeps Ctrl/⌘+T, W, Tab and 1–9 for itself, so the viewer's
+tabs use Alt there; the desktop app has no browser tabs and uses the usual keys. Its menu
+leaves Ctrl/⌘+W to the page (Close Window is Ctrl/⌘+Shift+W), so Ctrl/⌘+W closes a tab
+and never the window.
+
+**Changing shortcuts:** Settings → Shortcuts lists every shortcut above, grouped and
+searchable. Click a key to replace it, or + to add another; then press one combination
+(such as Alt+P), or two plain keys for a sequence (such as `g` then `x`). Enter keeps a
+single plain key at once and Esc cancels; the keys pressed while recording do nothing
+else. A key already used where the other shortcut also applies is reported, with
+Replace (the other loses it), Swap (the other gets the old key) or Cancel. Refused, with
+the reason: keys that move focus, scroll or edit (Tab, Enter, arrows, Space...),
+Ctrl/⌘+C/V/X/A/Z, the operating system's own (app switching, the Windows key), the
+browser's own in a browser, and the desktop menu's (Open Folder, Fetch, Pull, reload,
+zoom, Close Window) in the desktop app. A shortcut can be left with no keys. Each changed
+shortcut has a reset button, and "Reset all to defaults" resets them all. Changes apply at
+once, are saved, and show everywhere keys are shown (this list, tooltips, quick open,
+the hints in the sidebar and the doc bar). A saved binding that cannot be read falls back
+to the default for that shortcut only. The desktop menu's own accelerators are fixed.
 
 Two-key sequences must be typed within about a second. On a doc page, `]` folds the
 right-hand column away (remembered), or opens it as a drawer on narrower windows.

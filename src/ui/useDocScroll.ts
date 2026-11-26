@@ -7,13 +7,7 @@ import {
 } from 'react';
 
 import { findTarget } from './OutlinePanel';
-import {
-  newScrollKey,
-  recalledScroll,
-  rememberScroll,
-  scrollKeyOf,
-  withScrollKey,
-} from './scrollMemory';
+import { recalledScroll, rememberScroll } from './scrollMemory';
 import { useReducedMotion } from './storage';
 
 /** Where `element` must scroll to for `target` to sit at its scroll margin. */
@@ -65,7 +59,8 @@ const SETTLE_MS = 2500;
 
 /**
  * Scroll position of a doc page:
- * - back/forward return to where the page was (per history entry);
+ * - back/forward return to where the page was (per tab history entry,
+ *   named by `scrollKey`), as does a tab restored after a reload;
  * - a new address with `#anchor` lands on that heading, below sticky bars;
  * - any other new address starts at the top;
  * - a live refresh (same file and anchor) leaves the position alone.
@@ -78,6 +73,7 @@ export function useDocScroll({
   anchor,
   ready,
   view = '',
+  scrollKey,
 }: {
   scrollRef: RefObject<HTMLElement | null>;
   rootRef: RefObject<HTMLElement | null>;
@@ -86,10 +82,16 @@ export function useDocScroll({
   ready: boolean;
   /** What is shown of the doc (rendered or source); a change re-places it. */
   view?: string;
+  /** The tab's current history entry. */
+  scrollKey: string;
 }): (id: string) => void {
   const reducedMotion = useReducedMotion();
   const keyRef = useRef<string | null>(null);
   const shownFile = useRef<string | null>(null);
+  const liveKey = useRef(scrollKey);
+  useLayoutEffect(() => {
+    liveKey.current = scrollKey;
+  }, [scrollKey]);
 
   // Remember the position under the current entry while reading
   useEffect(() => {
@@ -99,7 +101,7 @@ export function useDocScroll({
       // The address can change before React shows the next doc; a scroll
       // then belongs to no placed entry and must not be saved
       const key = keyRef.current;
-      if (key !== null && scrollKeyOf(window.history.state) === key) {
+      if (key !== null && liveKey.current === key) {
         rememberScroll(key, scroller.scrollTop);
       }
     };
@@ -111,17 +113,13 @@ export function useDocScroll({
   // next doc loads must not overwrite the last entry's position
   useLayoutEffect(() => {
     keyRef.current = null;
-  }, [file, anchor, view]);
+  }, [file, anchor, view, scrollKey]);
 
   useLayoutEffect(() => {
     const scroller = scrollRef.current;
     if (!ready || scroller === null) return;
-    const existing = scrollKeyOf(window.history.state);
-    const saved = existing === null ? undefined : recalledScroll(existing);
-    const key = existing ?? newScrollKey();
-    if (existing === null) {
-      window.history.replaceState(withScrollKey(window.history.state, key), '');
-    }
+    const key = scrollKey;
+    const saved = recalledScroll(key);
     const sameDoc = shownFile.current === file;
     shownFile.current = file;
 
@@ -172,7 +170,7 @@ export function useDocScroll({
       window.clearTimeout(timer);
       for (const name of events) scroller.removeEventListener(name, stop);
     };
-  }, [file, anchor, ready, view, scrollRef, rootRef, reducedMotion]);
+  }, [file, anchor, ready, view, scrollKey, scrollRef, rootRef, reducedMotion]);
 
   return useCallback(
     (id: string) => {

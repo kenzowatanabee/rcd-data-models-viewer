@@ -110,7 +110,7 @@ describe('commandItems', () => {
     expect(ids('docs', 'docs/datasets/sort.md')).toContain('show-in-graph');
     expect(ids('docs', 'docs/datasets/sort.md')).toContain('copy-path');
     expect(ids('graph', 'docs/datasets/sort.md')).toContain('open-doc');
-    expect(ids('graph', null)).not.toContain('toggle-sidebar');
+    expect(ids('graph', null)).toContain('toggle-sidebar');
   });
 });
 

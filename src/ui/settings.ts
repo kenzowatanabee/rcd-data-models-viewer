@@ -19,7 +19,24 @@ export const STORAGE_KEYS = {
   groupBy: 'rcd-viewer.group-by',
   density: 'rcd-viewer.density',
   sourceWrap: 'rcd-viewer.source-wrap',
+  shortcuts: 'rcd-viewer.shortcuts',
+  startup: 'rcd-viewer.startup',
+  /** The sidebar's shown/hidden choice on graph and health tabs. */
+  sidebarCollapsedGraph: 'rcd-viewer.sidebar-collapsed-graph',
+  sidebarCollapsedHealth: 'rcd-viewer.sidebar-collapsed-health',
 } as const;
+
+/** Every key the viewer stores starts with this; "Reset all" clears them. */
+export const STORAGE_PREFIX = 'rcd-viewer.';
+
+export type Startup = 'restore' | 'home';
+
+export const parseStartup = (raw: string | null): Startup =>
+  raw === 'home' ? 'home' : 'restore';
+
+/** A collapsed flag that defaults to hidden (graph and health tabs). */
+export const parseHiddenByDefault = (raw: string | null): boolean =>
+  raw !== 'false';
 
 /** Per-tab memory (sessionStorage): which docs were left in Markdown view. */
 export const SESSION_KEYS = {

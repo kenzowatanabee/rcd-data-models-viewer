@@ -6,10 +6,22 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 
 import { ModalDialog } from './Dialog';
+import { desktop } from './desktop';
+import {
+  boundDefs,
+  effectiveBindings,
+  parseOverrides,
+  sequenceText,
+  serialiseOverrides,
+  type Bindings,
+  type Platform,
+} from './keymap';
+import { STORAGE_KEYS } from './settings';
 import {
   LOCAL_KEYS,
   SHORTCUTS,
@@ -52,7 +64,93 @@ function platformName(): string {
 }
 
 /** ⌘ on macOS, Ctrl elsewhere; read once. */
-export const IS_MAC = isMacPlatform(platformName());
+export const IS_MAC =
+  desktop === null
+    ? isMacPlatform(platformName())
+    : desktop.platform === 'darwin';
+
+export const PLATFORM: Platform = { desktop: desktop !== null, mac: IS_MAC };
+
+function readBindings(): Bindings {
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(STORAGE_KEYS.shortcuts);
+  } catch {
+    raw = null;
+  }
+  return effectiveBindings(PLATFORM, parseOverrides(raw));
+}
+
+/** The keys in force, shared by the key handler, Settings and every hint. */
+let bindings: Bindings = readBindings();
+const listeners = new Set<() => void>();
+
+export const keymap = {
+  get: () => bindings,
+  set(next: Bindings) {
+    bindings = next;
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEYS.shortcuts,
+        serialiseOverrides(next, PLATFORM),
+      );
+    } catch {
+      // Not persisted; the bindings still apply until the page reloads
+    }
+    for (const listener of listeners) listener();
+  },
+  subscribe(listener: () => void) {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
+};
+
+export const useBindings = () =>
+  useSyncExternalStore(keymap.subscribe, keymap.get);
+
+/** The first binding of a shortcut, or null when it has none. */
+export function useBinding(id: ShortcutId): string[] | null {
+  return useBindings()[id][0] ?? null;
+}
+
+export const formatSequence = (sequence: readonly string[]) =>
+  sequenceText(sequence, (chord) => formatChord(chord, IS_MAC));
+
+/** ` (g then d)` for a title, or nothing when the shortcut is unbound. */
+export function useKeyHint(id: ShortcutId): string {
+  const sequence = useBinding(id);
+  return sequence === null ? '' : ` (${formatSequence(sequence)})`;
+}
+
+/** For `aria-keyshortcuts`: `Control+K`, `G D`; undefined when unbound. */
+export function useAriaKeys(id: ShortcutId): string | undefined {
+  const sequence = useBinding(id);
+  if (sequence === null) return undefined;
+  return sequence
+    .map((chord) =>
+      chord
+        .split('+')
+        .map((part) =>
+          part === 'mod'
+            ? IS_MAC
+              ? 'Meta'
+              : 'Control'
+            : part === 'alt'
+              ? 'Alt'
+              : part === 'shift'
+                ? 'Shift'
+                : part === 'ctrl'
+                  ? 'Control'
+                  : part,
+        )
+        .join('+'),
+    )
+    .join(' ');
+}
+
+/** Whether the views below belong to the active tab; hidden tabs bind none. */
+export const PaneActiveContext = createContext(true);
+export const usePaneActive = () => useContext(PaneActiveContext);
 
 /** One keydown listener for every shortcut in the table. */
 export function ShortcutProvider({ children }: { children: ReactNode }) {
@@ -64,7 +162,7 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
       if (event.defaultPrevented) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       const result = resolveKey(
-        SHORTCUTS,
+        boundDefs(keymap.get()),
         pending,
         chordOf(event, IS_MAC),
         event.timeStamp,
@@ -74,7 +172,8 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
             target instanceof HTMLInputElement ? target.type : '',
             target?.isContentEditable ?? false,
           ),
-          modalOpen: document.querySelector('dialog[open]') !== null,
+          modalOpen:
+            document.querySelector('dialog[open], .context-menu') !== null,
           enabled: (id) => registry.handler(id) !== undefined,
         },
       );
@@ -99,15 +198,31 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
  */
 export function useShortcut(id: ShortcutId, handler: Handler | null) {
   const registry = useContext(RegistryContext);
+  const active = useContext(PaneActiveContext);
   const latest = useRef(handler);
   useLayoutEffect(() => {
     latest.current = handler;
   });
-  const bound = handler !== null;
+  const bound = handler !== null && active;
   useEffect(() => {
     if (registry === null || !bound) return;
     return registry.bind(id, () => latest.current?.());
   }, [registry, id, bound]);
+}
+
+/** The first binding of a shortcut as key caps; nothing when unbound. */
+export function ShortcutKeys({ id }: { id: ShortcutId }) {
+  const sequence = useBinding(id);
+  if (sequence === null) return null;
+  return (
+    <span className="key-sequence">
+      {sequence.map((chord, at) => (
+        <span key={at} className="key-step">
+          <Keys chord={chord} />
+        </span>
+      ))}
+    </span>
+  );
 }
 
 export function Keys({ chord }: { chord: string }) {
@@ -142,8 +257,9 @@ function KeyList({ keys }: { keys: string[][] }) {
   );
 }
 
-const GROUPS = [
+export const GROUPS = [
   'Everywhere',
+  'Tabs',
   'Doc pages',
   'Lineage graph',
   'Quick open',
@@ -151,10 +267,17 @@ const GROUPS = [
 ] as const;
 
 /** Generated from the shortcut table, so it cannot fall out of date. */
-export function ShortcutHelp({ onClose }: { onClose: () => void }) {
+export function ShortcutHelp({
+  onClose,
+  onSettings,
+}: {
+  onClose: () => void;
+  onSettings: () => void;
+}) {
+  const bound = useBindings();
   const rows = [
     ...SHORTCUTS.map((def) => ({
-      keys: def.keys,
+      keys: bound[def.id],
       label: def.label,
       where: def.where,
     })),
@@ -190,7 +313,11 @@ export function ShortcutHelp({ onClose }: { onClose: () => void }) {
                   <div key={row.label}>
                     <dt>{row.label}</dt>
                     <dd>
-                      <KeyList keys={row.keys} />
+                      {row.keys.length === 0 ? (
+                        <span className="muted">None</span>
+                      ) : (
+                        <KeyList keys={row.keys} />
+                      )}
                     </dd>
                   </div>
                 ))}
@@ -198,8 +325,12 @@ export function ShortcutHelp({ onClose }: { onClose: () => void }) {
           </section>
         ))}
         <p className="muted shortcut-note">
-          Shortcuts do nothing while you type in a text field, except{' '}
-          <Keys chord="mod+k" />.
+          Shortcuts do nothing while you type in a text field, except quick
+          open. Change them in{' '}
+          <button type="button" className="link-button" onClick={onSettings}>
+            Settings → Shortcuts
+          </button>
+          .
         </p>
       </div>
     </ModalDialog>

@@ -132,7 +132,12 @@ function save(next: DesktopSettings): void {
 }
 
 function folderState(): FolderState {
-  return { current, recent: settings.recentFolders, problem };
+  return {
+    current,
+    recent: settings.recentFolders,
+    problem,
+    settingsFile,
+  };
 }
 
 /** A path typed on a command line is relative to where it was typed. */

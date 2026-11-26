@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  parseHiddenByDefault,
+  parseStartup,
   ASIDE_DEFAULT,
   ASIDE_MAX,
   ASIDE_MIN,
@@ -157,5 +159,18 @@ describe('view settings', () => {
     expect(parseAsideWidth('5000')).toBe(ASIDE_MAX);
     expect(parseAsideWidth('x')).toBe(ASIDE_DEFAULT);
     expect(parseAsideWidth(null)).toBe(ASIDE_DEFAULT);
+  });
+});
+
+describe('startup and per-kind sidebar', () => {
+  it('restores tabs unless Home is asked for', () => {
+    expect(parseStartup(null)).toBe('restore');
+    expect(parseStartup('home')).toBe('home');
+    expect(parseStartup('junk')).toBe('restore');
+  });
+
+  it('hides the sidebar on graph and health tabs until shown', () => {
+    expect(parseHiddenByDefault(null)).toBe(true);
+    expect(parseHiddenByDefault('false')).toBe(false);
   });
 });

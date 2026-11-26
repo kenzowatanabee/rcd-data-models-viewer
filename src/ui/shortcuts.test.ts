@@ -149,3 +149,36 @@ describe('isMacPlatform', () => {
     expect(isMacPlatform('Linux x86_64')).toBe(false);
   });
 });
+
+describe('modified shortcuts while typing', () => {
+  const defs = [
+    {
+      id: 'close-tab',
+      keys: [['mod+w'], ['x']],
+      label: '',
+      where: 'Tabs',
+      inInputs: 'modified',
+    },
+  ] as const;
+  it('fires a Ctrl/⌘ binding in a text field, never a plain one', () => {
+    const typing = context({ typing: true });
+    expect(
+      resolveKey(
+        [...defs].map((d) => ({ ...d, keys: d.keys.map((k) => [...k]) })),
+        null,
+        'mod+w',
+        0,
+        typing,
+      ).id,
+    ).toBe('close-tab');
+    expect(
+      resolveKey(
+        [...defs].map((d) => ({ ...d, keys: d.keys.map((k) => [...k]) })),
+        null,
+        'x',
+        0,
+        typing,
+      ).id,
+    ).toBeNull();
+  });
+});

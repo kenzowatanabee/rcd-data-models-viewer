@@ -7,6 +7,7 @@ import {
   type Candidate,
   type FieldHighlight,
 } from './quickMatch';
+import type { ShortcutId } from './shortcuts';
 
 export type PaletteKind =
   'dataset' | 'pipeline' | 'doc' | 'external' | 'heading' | 'command';
@@ -21,7 +22,14 @@ export type CommandId =
   | 'toggle-sidebar'
   | 'show-in-graph'
   | 'open-doc'
-  | 'copy-path';
+  | 'copy-path'
+  | 'settings'
+  | 'shortcuts'
+  | 'density-comfortable'
+  | 'density-compact'
+  | 'new-tab'
+  | 'close-tab'
+  | 'reopen-tab';
 
 export interface PaletteItem extends Candidate {
   kind: PaletteKind;
@@ -99,7 +107,17 @@ export interface CommandContext {
   /** The selected node's doc, on the graph page. */
   nodeFile: string | null;
   sidebarCollapsed: boolean;
+  /** The keys bound to a shortcut, as shown; null when unbound. */
+  hint?: (id: ShortcutId) => string | null;
 }
+
+const DEFAULT_HINTS = (id: ShortcutId): string | null =>
+  ({
+    'go-docs': 'g d',
+    'go-graph': 'g g',
+    'go-health': 'g h',
+    'toggle-sidebar': '[',
+  })[id as string] ?? null;
 
 const command = (
   id: CommandId,
@@ -121,24 +139,55 @@ const command = (
 
 /** The commands that make sense where the reader is. */
 export function commandItems(context: CommandContext): PaletteItem[] {
+  const hint = context.hint ?? DEFAULT_HINTS;
   const items = [
-    command('go-docs', 'Go to Docs', 'section open', 'g d'),
-    command('go-graph', 'Go to Lineage graph', 'section open lineage', 'g g'),
-    command('go-health', 'Go to Docs health', 'section problems issues', 'g h'),
+    command('go-docs', 'Go to Docs', 'section open', hint('go-docs')),
+    command(
+      'go-graph',
+      'Go to Lineage graph',
+      'section open lineage',
+      hint('go-graph'),
+    ),
+    command(
+      'go-health',
+      'Go to Docs health',
+      'section problems issues',
+      hint('go-health'),
+    ),
+    command(
+      'settings',
+      'Settings',
+      'preferences options folder',
+      hint('settings'),
+    ),
+    command(
+      'shortcuts',
+      'Keyboard shortcuts',
+      'keys help bindings',
+      hint('help'),
+    ),
+    command('new-tab', 'New tab', 'open home', hint('new-tab')),
+    command('close-tab', 'Close the tab', 'tab', hint('close-tab')),
+    command(
+      'reopen-tab',
+      'Reopen the last closed tab',
+      'tab undo',
+      hint('reopen-tab'),
+    ),
     command('theme-light', 'Theme: light', 'switch appearance mode'),
     command('theme-dark', 'Theme: dark', 'switch appearance mode night'),
     command('theme-system', 'Theme: follow the system', 'switch appearance'),
+    command('density-comfortable', 'Rows: comfortable', 'density spacing'),
+    command('density-compact', 'Rows: compact', 'density spacing dense'),
   ];
-  if (context.section === 'docs') {
-    items.push(
-      command(
-        'toggle-sidebar',
-        context.sidebarCollapsed ? 'Show the sidebar' : 'Hide the sidebar',
-        'toggle panel',
-        '[',
-      ),
-    );
-  }
+  items.push(
+    command(
+      'toggle-sidebar',
+      context.sidebarCollapsed ? 'Show the sidebar' : 'Hide the sidebar',
+      'toggle panel',
+      hint('toggle-sidebar'),
+    ),
+  );
   if (context.section === 'docs' && context.node !== null) {
     items.push(
       command('show-in-graph', 'Show this doc in the graph', 'lineage'),

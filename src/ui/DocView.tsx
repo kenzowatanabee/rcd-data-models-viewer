@@ -46,11 +46,18 @@ import {
   STORAGE_KEYS,
   parseStringList,
 } from './settings';
-import { Keys, useShortcut } from './ShortcutLayer';
+import {
+  ShortcutKeys,
+  useKeyHint,
+  usePaneActive,
+  useShortcut,
+} from './ShortcutLayer';
+import { navigate } from './address';
 import { githubSlug } from './slug';
 import { SourceView } from './SourceView';
 import { StateView } from './State';
 import {
+  onSettingChange,
   readSession,
   readSetting,
   useReducedMotion,
@@ -85,6 +92,10 @@ interface Props {
   pinned: boolean;
   onTogglePin: (() => void) | null;
   aside: AsideLayout;
+  /** The tab's current history entry, for its scroll position. */
+  scrollKey: string;
+  /** Closes the tab, offered when the doc cannot be opened. */
+  onCloseTab: (() => void) | null;
 }
 
 /** Outlines with fewer entries than this are not worth a panel. */
@@ -113,8 +124,7 @@ function rememberSource(file: string, on: boolean) {
  * its anchor rather than by the other view's position.
  */
 function replaceHash(hash: string) {
-  window.history.replaceState(null, '', hash);
-  window.dispatchEvent(new HashChangeEvent('hashchange'));
+  navigate(hash, { replace: true });
 }
 
 function DocSkeleton() {
@@ -187,7 +197,12 @@ export function DocView({
   pinned,
   onTogglePin,
   aside,
+  scrollKey,
+  onCloseTab,
 }: Props) {
+  const paneActive = usePaneActive();
+  const sourceHint = useKeyHint('toggle-source');
+  const panelHint = useKeyHint('toggle-panel');
   const [loaded, setLoaded] = useState<{
     file: string;
     result: Loaded<string>;
@@ -201,6 +216,13 @@ export function DocView({
   );
   const reducedMotion = useReducedMotion();
   const docked = aside.placement === 'docked';
+  useEffect(
+    () =>
+      onSettingChange(STORAGE_KEYS.sourceWrap, (value) =>
+        setWrap(value !== 'false'),
+      ),
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -225,8 +247,9 @@ export function DocView({
   const text = current?.ok ? current.value : null;
 
   useEffect(() => {
+    if (!paneActive) return;
     document.title = landing ? 'RCD data models' : `${file} · RCD data models`;
-  }, [file, landing]);
+  }, [file, landing, paneActive]);
 
   // A doc left in the Markdown view in this tab opens in it again
   useEffect(() => {
@@ -257,6 +280,7 @@ export function DocView({
     anchor: source && line !== null ? `L${line}` : anchor,
     ready: text !== null,
     view: source ? 'source' : 'rendered',
+    scrollKey,
   });
 
   const node = data?.graph.nodes.find((candidate) => candidate.id === file);
@@ -378,7 +402,7 @@ export function DocView({
                       type="button"
                       aria-pressed={!source}
                       onClick={() => setView(false)}
-                      title="The rendered page (m)"
+                      title={`The rendered page${sourceHint}`}
                     >
                       Rendered
                     </button>
@@ -386,8 +410,7 @@ export function DocView({
                       type="button"
                       aria-pressed={source}
                       onClick={() => setView(true)}
-                      title="The Markdown file as on disk (m)"
-                      aria-keyshortcuts="m"
+                      title={`The Markdown file as on disk${sourceHint}`}
                     >
                       Markdown
                     </button>
@@ -395,7 +418,7 @@ export function DocView({
                 )}
                 {!landing && text !== null && (
                   <span className="doc-bar-key" aria-hidden="true">
-                    <Keys chord="m" />
+                    <ShortcutKeys id="toggle-source" />
                   </span>
                 )}
                 {onTogglePin !== null && (
@@ -423,8 +446,7 @@ export function DocView({
                     type="button"
                     className="btn btn-ghost btn-icon btn-sm"
                     aria-label={panelLabel}
-                    title={`${panelLabel} (])`}
-                    aria-keyshortcuts="]"
+                    title={`${panelLabel}${panelHint}`}
                     aria-expanded={docked ? showDocked : drawerOpen}
                     aria-controls={docked ? 'doc-aside' : undefined}
                     onClick={togglePanel}
@@ -448,15 +470,26 @@ export function DocView({
                 title={`Could not open ${file}`}
                 detail={current.error}
                 actions={
-                  <a className="btn" href="#/">
-                    Go to the start page
-                  </a>
+                  <>
+                    {onCloseTab !== null && (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={onCloseTab}
+                      >
+                        Close this tab
+                      </button>
+                    )}
+                    <a className="btn" href="#/">
+                      Go to the start page
+                    </a>
+                  </>
                 }
               >
                 <p>
-                  The file may have been moved, renamed or deleted in the docs
-                  folder. Pick another doc in the sidebar, or fix the link that
-                  led here.
+                  This doc is gone: the file may have been moved, renamed or
+                  deleted in the docs folder. Pick another doc in the sidebar,
+                  or fix the link that led here.
                 </p>
               </StateView>
             )}
@@ -530,7 +563,7 @@ export function DocView({
           type="button"
           className="aside-reopen"
           aria-label="Show lineage and sections"
-          title="Show lineage and sections (])"
+          title={`Show lineage and sections${panelHint}`}
           onClick={() => aside.onCollapsed(false)}
         >
           <PanelRightOpen size={14} aria-hidden="true" />

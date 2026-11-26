@@ -1,0 +1,803 @@
+/* The icon rail, the tab strip and its panes, the folder control, context
+   menus and Settings. */
+
+/* Rail */
+
+.rail {
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: var(--rail-w);
+  padding: var(--space-1-5) 0 var(--space-2);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-rail-bg);
+}
+
+.rail-spacer {
+  flex: 1;
+}
+
+.rail-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-rail-icon);
+  cursor: pointer;
+}
+
+.rail-button:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.rail-button[aria-current='page'] {
+  background: var(--color-selected);
+  color: var(--color-accent);
+}
+
+/* The bar beside the current section */
+.rail-button[aria-current='page']::before {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: -6px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--color-accent);
+  content: '';
+}
+
+.rail-button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.rail-badge {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-badge-bg);
+  color: var(--color-badge-text);
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  line-height: 15px;
+  text-align: center;
+}
+
+/* Top bar: history, then the tabs, then quick open */
+
+.topbar-nav {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.tabstrip {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  align-self: stretch;
+  gap: var(--space-0-5);
+  min-width: 0;
+}
+
+.tabstrip-scroll {
+  display: flex;
+  align-items: flex-end;
+  align-self: stretch;
+  gap: 1px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 var(--space-1);
+  scrollbar-width: none;
+}
+
+.tabstrip-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tabstrip-scroll.fade-left {
+  mask-image: linear-gradient(to right, transparent, #000 24px);
+}
+
+.tabstrip-scroll.fade-right {
+  mask-image: linear-gradient(to left, transparent, #000 24px);
+}
+
+.tabstrip-scroll.fade-left.fade-right {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 24px,
+    #000 calc(100% - 24px),
+    transparent
+  );
+}
+
+.tabstrip-new,
+.tabstrip-list {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 120px;
+  max-width: 200px;
+  height: 32px;
+  padding: 0 var(--space-1) 0 var(--space-2-5, 10px);
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  cursor: default;
+  user-select: none;
+}
+
+.tab:hover {
+  background: var(--color-tab-hover);
+  color: var(--color-text);
+}
+
+.tab.is-active {
+  z-index: 1;
+  /* Joins the content below: covers the bar's bottom border */
+  margin-bottom: -1px;
+  height: 33px;
+  border-color: var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: var(--weight-medium);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.tab.is-pinned {
+  justify-content: center;
+  min-width: 36px;
+  width: 36px;
+  padding: 0;
+}
+
+.tab.is-dragging {
+  opacity: 0.5;
+}
+
+.tab.drop-before::before,
+.tab.drop-after::after {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--color-accent);
+  content: '';
+}
+
+.tab.drop-before::before {
+  left: -2px;
+}
+
+.tab.drop-after::after {
+  right: -2px;
+}
+
+.tab-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  color: var(--color-text-muted);
+}
+
+.tab.is-active .tab-icon {
+  color: var(--color-text-secondary);
+}
+
+.tab-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-lead {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.tab-close {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.tab:hover .tab-close,
+.tab.is-active .tab-close,
+.tab:focus-within .tab-close {
+  visibility: visible;
+}
+
+.tab-close:hover {
+  background: var(--color-pressed);
+  color: var(--color-text);
+}
+
+/* Panes: inactive tabs stay laid out but hidden, so nothing in them moves */
+
+.tab-panes {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.tab-pane {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Descendants can set visibility back to visible (the graph's nodes do),
+   so opacity hides the pane as a whole */
+.tab-pane:not(.is-active) {
+  z-index: -1;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Sidebar: docs open in a tab, and the folder control at the bottom */
+
+.nav-open {
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+
+.sidebar-foot {
+  padding: var(--space-1) var(--space-2);
+}
+
+.folder-control-sidebar {
+  flex: 1;
+  min-width: 0;
+}
+
+.folder-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  width: 100%;
+  min-width: 0;
+  height: var(--control-h);
+  padding: 0 var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder-button:hover,
+.folder-button[aria-expanded='true'] {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.folder-button > svg {
+  flex-shrink: 0;
+}
+
+.folder-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-button .git-indicator {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  padding: 0;
+  cursor: inherit;
+}
+
+.folder-button:hover .git-indicator {
+  background: none;
+}
+
+.git-popover.folder-popover {
+  position: fixed;
+  top: auto;
+  right: auto;
+  max-height: calc(100vh - var(--space-4));
+  overflow-y: auto;
+}
+
+.folder-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.folder-head > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.folder-head-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.git-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.folder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.folder-recent h3 {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.folder-recent ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.folder-recent-item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-1-5);
+  width: 100%;
+  padding: var(--space-1) var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder-recent-item:hover:not(:disabled) {
+  background: var(--color-hover);
+}
+
+.folder-recent-item:disabled {
+  cursor: default;
+}
+
+.folder-recent-path {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Context menus */
+
+.context-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 200px;
+  max-width: min(360px, calc(100vw - 8px));
+  max-height: calc(100vh - 8px);
+  overflow-y: auto;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-popover);
+  font-size: var(--text-base);
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-menu-item > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu-item:hover:not(:disabled),
+.context-menu-item:focus-visible {
+  background: var(--color-hover);
+  outline: none;
+}
+
+.context-menu-item:disabled {
+  color: var(--color-text-disabled);
+  cursor: default;
+}
+
+.context-menu-item[aria-checked='true'] {
+  color: var(--color-accent);
+  font-weight: var(--weight-medium);
+}
+
+.context-menu-hint {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.context-menu-sep {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--color-border);
+}
+
+/* Quick open: a doc already open in a tab */
+
+.palette-open {
+  flex-shrink: 0;
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* Settings */
+
+.settings-dialog {
+  width: min(860px, calc(100vw - var(--space-8)));
+  height: min(640px, calc(100vh - var(--space-12)));
+}
+
+.settings-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 168px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-2);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg-chrome);
+}
+
+.settings-nav button {
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-nav button:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.settings-nav button[aria-current='page'] {
+  background: var(--color-selected);
+  color: var(--color-text);
+  font-weight: var(--weight-medium);
+}
+
+.settings-content {
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5) var(--space-6);
+}
+
+.settings-section-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.settings-group h3 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.settings-label {
+  width: 128px;
+  color: var(--color-text-secondary);
+}
+
+.settings-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.settings-note {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.settings-path {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.settings-path code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-facts {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+}
+
+.settings-facts dt {
+  color: var(--color-text-muted);
+}
+
+.settings-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settings-shortcuts-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.settings-shortcuts-head .input {
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.settings-live:empty {
+  display: none;
+}
+
+.settings-live {
+  padding: var(--space-1-5) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-subtle);
+  font-size: var(--text-sm);
+}
+
+.shortcut-settings-group h3 {
+  margin: var(--space-2) 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.shortcut-settings-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shortcut-setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-height: 36px;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.shortcut-setting-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.binding {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.binding-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 24px;
+  padding: 0 var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.binding-keys:hover {
+  background: var(--color-hover);
+}
+
+.binding-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.binding-remove:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.binding.is-recording {
+  gap: var(--space-1);
+  height: 26px;
+  padding: 0 var(--space-2);
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  font-size: var(--text-sm);
+}
+
+.shortcut-problem {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-1-5) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-subtle);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.shortcut-problem p {
+  margin: 0 0 var(--space-1-5);
+}
+
+.shortcut-problem-actions {
+  display: flex;
+  gap: var(--space-1-5);
+}
+
+@media (max-width: 720px) {
+  .settings-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .settings-content {
+    padding: var(--space-3);
+  }
+}
+
+.tabstrip-list.is-idle {
+  visibility: hidden;
+}

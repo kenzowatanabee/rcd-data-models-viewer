@@ -59,7 +59,8 @@ import {
 } from './GraphParts';
 import { GraphToolbar } from './GraphToolbar';
 import { graphHash, type GraphRoute } from './route';
-import { useShortcut } from './ShortcutLayer';
+import { navigate } from './address';
+import { usePaneActive, useShortcut } from './ShortcutLayer';
 import { STORAGE_KEYS, motionDuration, parseFlag } from './settings';
 import { StateView } from './State';
 import { readSetting, useReducedMotion, writeSetting } from './storage';
@@ -71,13 +72,7 @@ import { readSetting, useReducedMotion, writeSetting } from './storage';
 function go(route: GraphRoute, replace = false): void {
   const hash = graphHash(route);
   if (hash === window.location.hash) return;
-  if (replace) {
-    window.history.replaceState(null, '', hash);
-    // replaceState fires no event; the app follows the hash through it
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
-  } else {
-    window.location.hash = hash;
-  }
+  navigate(hash, { replace });
 }
 
 const EMPTY: VisibleGraph = { nodes: [], edges: [] };
@@ -176,6 +171,7 @@ export function GraphPage(props: Props) {
 }
 
 function GraphView({ data, route: address }: Props) {
+  const paneActive = usePaneActive();
   // A control's change shows at once, before the address catches up
   const addressHash = graphHash(address);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -606,6 +602,7 @@ function GraphView({ data, route: address }: Props) {
   // Esc steps back: the open tag, then the second node, then the selection
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
+      if (!paneActive) return;
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target?.tagName ?? '')) {

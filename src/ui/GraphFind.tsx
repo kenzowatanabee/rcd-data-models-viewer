@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { GraphNode } from '../indexer/types';
 import { captionOf } from './graphNodes';
 import { findNodes } from './graphModel';
+import { useAriaKeys } from './ShortcutLayer';
 
 /** Search box that picks a node by name or alias. */
 export function GraphFind({
@@ -12,6 +13,7 @@ export function GraphFind({
   nodes: GraphNode[];
   onPick: (id: string) => void;
 }) {
+  const filterKeys = useAriaKeys('filter');
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
@@ -33,7 +35,7 @@ export function GraphFind({
         className="input"
         placeholder="Find a node by name or alias"
         aria-label="Find a node by name or alias"
-        aria-keyshortcuts="/"
+        aria-keyshortcuts={filterKeys}
         role="combobox"
         aria-expanded={open && hits.length > 0}
         aria-controls="graph-find-results"

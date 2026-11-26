@@ -3,9 +3,10 @@
 .app {
   display: grid;
   grid-template-rows: var(--topbar-h) minmax(0, 1fr);
-  /* Without this the column grows to the widest doc content and pushes the
-     top bar and the right-hand panel past the window edge */
-  grid-template-columns: minmax(0, 1fr);
+  /* The rail, then the content. Without minmax the column grows to the
+     widest doc content and pushes the top bar and the right-hand panel
+     past the window edge */
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
   height: 100%;
   overflow: hidden;
 }
@@ -34,9 +35,9 @@
 .topbar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
-  padding: 0 var(--space-3) 0 var(--space-2);
+  padding: 0 var(--space-2) 0 var(--space-1-5);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-chrome);
   user-select: none;
@@ -49,92 +50,10 @@
   -webkit-app-region: drag;
 }
 
-:root[data-frameless] .drag-region :is(a, button, input, [role='group']) {
+:root[data-frameless]
+  .drag-region
+  :is(a, button, input, [role='group'], [role='tab']) {
   -webkit-app-region: no-drag;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: var(--control-h);
-  padding: 0 var(--space-2);
-  color: var(--color-text);
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
-}
-
-.brand:hover {
-  text-decoration: none;
-  background: var(--color-hover);
-}
-
-.brand-mark {
-  color: var(--color-accent);
-}
-
-.topbar-divider {
-  width: 1px;
-  height: 20px;
-  margin: 0 var(--space-1);
-  background: var(--color-border);
-}
-
-.topnav ul {
-  display: flex;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.topnav a {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  height: var(--control-h);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-weight: var(--weight-medium);
-}
-
-.topnav a:hover {
-  background: var(--color-hover);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.topnav a[aria-current='page'] {
-  background: var(--color-selected);
-  color: var(--color-text);
-}
-
-.topnav a[aria-current='page'] svg {
-  color: var(--color-accent);
-}
-
-.topbar-spacer {
-  flex: 1;
-}
-
-.docs-folder {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  min-width: 0;
-  max-width: 280px;
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
-
-.docs-folder span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
 }
 
 /* Sidebar */
@@ -547,31 +466,6 @@
   font-size: var(--text-xs);
 }
 
-.sidebar-foot-counts {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-foot-health {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--control-h-sm);
-  padding: 0 var(--space-1-5);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  font-weight: var(--weight-medium);
-}
-
-.sidebar-foot-health:hover {
-  background: var(--color-hover);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
 /* Drag handle on a column's edge */
 .resizer {
   position: absolute;
@@ -805,38 +699,6 @@
   font-size: var(--text-base);
 }
 
-/* Narrow windows: the top bar keeps every control on one line */
-.topnav a {
-  white-space: nowrap;
-}
-
-@media (max-width: 1099px) {
-  span.docs-folder {
-    display: none;
-  }
-
-  /* The desktop app's folder menu stays, as an icon */
-  button.docs-folder span {
-    display: none;
-  }
-}
-
-@media (max-width: 959px) {
-  .topnav-label,
-  .palette-trigger-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-
-  .topnav a {
-    padding: 0 var(--space-1-5);
-  }
-}
-
 /* Desktop app: the first screen, before a docs folder is open */
 
 .welcome {
@@ -863,19 +725,6 @@
 
 .welcome-recent .btn {
   font-family: var(--font-mono);
-}
-
-button.docs-folder {
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  padding: var(--space-1) var(--space-1-5);
-  cursor: pointer;
-}
-
-button.docs-folder:hover {
-  background: var(--color-hover);
-  color: var(--color-text);
 }
 
 /* Desktop app: git in the top bar */
